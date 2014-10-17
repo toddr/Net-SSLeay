@@ -2,20 +2,24 @@
 # 19.6.1998, Sampo Kellomaki <sampo@iki.fi>
 # 31.3.1999, Upgraded to OpenSSL-0.9.2b, --Sampo
 # 31.7.1999, Upgraded to OpenSSL-0.9.3a, fixed depending on symlinks
-#            (thanks to schinder@pobox.com) --Sampo
+#            (thanks to schinder@@pobox_.com) --Sampo
 # 7.4.2001,  Upgraded to OpenSSL-0.9.6a --Sampo
+# 9.11.2001, EGD patch from Mik Firestone <mik@@speed.stdio._com> --Sampo
 #
 # Make a self signed cert
 
 $dir = shift;
 $openssl_path = shift || '/usr/local/ssl/bin';
 
+$egd = defined( $ENV{EGD_POOL} ) ?  "-rand $ENV{EGD_POOL}" : '';
+
 open (REQ, "|$openssl_path/openssl req -config $dir/req.conf "
-      . "-x509 -days 36500 -new -keyout $dir/key.pem >$dir/cert.pem")
+      . "-x509 -days 36500 -new -keyout $dir/key.pem $egd >$dir/cert.pem")
     or die "cant open req. check your path ($!)";
 print REQ <<DISTINGUISHED_NAME;
 XX
-Net::SSLeay test land
+Net::SSLeay
+test land
 Test City
 Net::SSLeay Organization
 Test Unit

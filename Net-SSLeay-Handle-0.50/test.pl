@@ -1,9 +1,13 @@
+# Original by Jim Bowlin <jbowlin@linklint.org>
+# Maintenance fixes by Sampo Kellomaki <sampo@iki.fi>
+# $Id: test.pl,v 1.2 2001/10/02 14:02:43 sampo Exp $
+#
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl test.pl'
 
 ######################### We start with some black magic to print on failure.
 
-BEGIN { $| = 1; print "1..1\n"; }
+BEGIN { $| = 1; print "1..3\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Net::SSLeay::Handle qw/shutdown/;
 $loaded = 1;
@@ -11,10 +15,10 @@ print "ok 1\n";
 
 ######################### End of black magic.
 
+#    app.iplanet.com
 my @sites = qw {
     www.openssl.org
     www.cdw.com
-    app.iplanet.com
     banking.wellsfargo.com
     secure.worldgaming.net
     www.engelschall.com
@@ -66,8 +70,8 @@ sub test_site_2 {
 
 sub read_home_page {
     my ($socket, $close) = @_;
-    print $socket "GET / HTTP/1.0\r\n";
-    shutdown($socket, 1);
+    print $socket "GET / HTTP/1.0\r\n\r\n";
+    #shutdown($socket, 1);
     my $head_cnt = 0;
     while (<$socket>) {
         /\S/ or last;

@@ -6,16 +6,20 @@
 # 18.7.2001, fixed numerous issues reported by Eric A Selber
 #	     <eselber@briefcase.com> that made Windows builds painful --Sampo
 # 20.8.2001, tweaked path editing, thanks Gordon Lack <gml4410@ggr.co.uk> --Sampo
+# $Id: Makefile.PL,v 1.4 2001/10/02 14:01:36 sampo Exp $
 #
 # Configuration script for Net::SSLeay.pm
 
 $usage = <<USAGE
-Usage: ./Makefile.PL [-windows] [-rsaref] [-m|-t] [OpenSSL installation path]
+Usage: ./Makefile.PL [-windows] [-rsaref] [-m|-t] [OpenSSL install path] [-- args]
            -m and -t  will automatically build and test, respectively
            -d         builds and tests verbosely
            -rsaref    provides support for linking against rsaref
            -windows   sets library paths for windows build
+           --         Introduces arguments for Make::Maker. Typically used
+                      to pass PREFIX=/path/to/your/perl/libs
 E.g:   ./Makefile.PL -d
+       ./Makefile.PL -t /apps/openssl/std -- PREFIX=/home/koerkki/perllib
 
 Note: For Windows builds openssl installation path must always be given.
 USAGE
@@ -27,15 +31,16 @@ $rsaref  = shift if $ARGV[0] eq '-rsaref';
 $make_it = shift if $ARGV[0] eq '-m';
 $test_it = shift if $ARGV[0] eq '-t';
 $debug = $test_it = shift if $ARGV[0] eq '-d';
-if (@ARGV) {
-    $openssl_path = shift;
-} else {
-    # It seems at least Redhat installs OpenSSL in /usr ...
-    $openssl_path = '/usr' if -x '/usr/bin/openssl' || -x '/usr/sbin/openssl';
-    $openssl_path = '/opt/ssl' if -x '/opt/ssl/bin/openssl'
-	|| -x '/opt/ssl/sbin/openssl';
-    $openssl_path = '/usr/local/ssl' if -x '/usr/local/ssl/bin/openssl';
-}
+
+# It seems at least Redhat installs OpenSSL in /usr ...
+$openssl_path = '/usr' if -x '/usr/bin/openssl' || -x '/usr/sbin/openssl';
+$openssl_path = '/opt/ssl' if -x '/opt/ssl/bin/openssl'
+    || -x '/opt/ssl/sbin/openssl';
+$openssl_path = '/usr/local/ssl' if -x '/usr/local/ssl/bin/openssl';
+$openssl_path = '/apps/openssl/std' if -x '/apps/openssl/std/bin/openssl';
+$openssl_path = shift if @ARGV && $ARGV[0] ne '--';
+
+shift if $ARGV[0] eq '--';   # Rest of args are for MakeMaker
 
 $openssl_vers = '0.9.6b';
 

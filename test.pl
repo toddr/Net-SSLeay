@@ -5,6 +5,8 @@
 # 25.4.2001, added test for 64 bit pointer cast by aspa --Sampo
 # 20.8.2001, moved checking which perl to use higher up. Thanks
 #            Gordon Lack <gml4410@ggr.co.uk> --Sampo
+# 7.12.2001, added test cases for client certificates and proxy SSL --Sampo
+# $Id$
 #
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl test.pl'
@@ -16,7 +18,7 @@ use Config;
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN {print "1..16\n";}
+BEGIN {print "1..15\n";}
 END {print "not ok 1\n" unless $::loaded;}
 select(STDOUT); $|=1;
 use Net::SSLeay qw(die_now die_if_ssl_error);
@@ -100,6 +102,10 @@ print &test(6, ($res =~ /OK\s*$/));
 
 kill $pid;  # We don't need that server any more
 
+$res = `$perl examples/cli-cert.pl $cert_pem $key_pem examples`;
+print $res if $trace>1;
+print &test(7, ($res =~ /client cert: Subject Name: \/C=XX/));
+
 print "\tSending $mb MB over pipes, may take a while (and some VM)...\n"
     if $trace;
 $secs = time;
@@ -107,12 +113,12 @@ $res = `$perl examples/stdio_bulk.pl $cert_pem $key_pem $bytes`;
 print $res if $trace>1;
 $secs = (time - $secs) || 1;
 print "\t\t...took $secs secs (" . int($mb*1024/$secs). " KB/s)\n" if $trace;
-print &test(7, ($res =~ /OK\s*$/));
+print &test(8, ($res =~ /OK\s*$/));
 
+#app.iplanet.com
 my @sites = qw(
 www.openssl.org
 www.cdw.com
-app.iplanet.com
 banking.wellsfargo.com
 secure.worldgaming.net
 www.engelschall.com
@@ -129,7 +135,7 @@ print "    Following tests _will_ fail if you do not have network\n"
 sleep 5;
 }
 
-print &test('8 www.bacus.pt', &Net::SSLeay::sslcat("www.bacus.pt", 443,
+print &test('9 www.bacus.pt', &Net::SSLeay::sslcat("www.bacus.pt", 443,
 				 "get\n\r\n\r") =~ /<TITLE>/);
 
 sub test_site ($$) {
@@ -165,7 +171,7 @@ sub test_site ($$) {
     }
 }
 
-my $i = 9;
+my $i = 10;
 my $s;
 for $s (@sites) {
     &test_site($i++, $s );

@@ -18,7 +18,7 @@
  *            SSL_*_methods --Sampo
  * 25.9.2001, added a big pile of methods by automatically grepping and diffing
  *            openssl headers and my module --Sampo
- * $Id: SSLeay.xs,v 1.3 2001/09/25 19:37:03 sampo Exp $
+ * $Id: SSLeay.xs,v 1.4 2001/09/25 20:43:18 sampo Exp $
  * 
  * The distribution and use of this module are subject to the conditions
  * listed in LICENSE file at the root of OpenSSL-0.9.6b
@@ -2748,10 +2748,18 @@ SSL_add_file_cert_subjects_to_stack(stackCAs,file)
      X509_NAME_STACK * stackCAs
      const char * file
 
-int	
+#ifndef WIN32
+#ifndef VMS
+#ifndef MAC_OS_pre_X
+
+int
 SSL_add_dir_cert_subjects_to_stack(stackCAs,dir)
      X509_NAME_STACK * stackCAs
      const char * dir
+
+#endif
+#endif
+#endif
 
 int
 SSL_CTX_get_ex_new_index(argl,argp,new_func,dup_func,free_func)

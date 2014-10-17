@@ -24,6 +24,7 @@ examples/get_authenticated_page.pl
 examples/req.conf
 examples/makecert.pl
 examples/ssl_diff.pl
+examples/cli-cert.pl
 Net-SSLeay-Handle-0.50/Changes
 Net-SSLeay-Handle-0.50/Handle.pm
 Net-SSLeay-Handle-0.50/MANIFEST

@@ -10,7 +10,10 @@
 # 25.4.2001, 64 bit fixes by Marko Asplund <aspa@kronodoc.fi> --Sampo
 # 17.4.2001, more error codes from aspa --Sampo
 # 25.9.2001, added heaps and piles of newer OpenSSL auxiliary functions --Sampo
-# $Id: SSLeay.pm,v 1.3 2001/09/25 19:37:03 sampo Exp $
+# 6.11.2001, got rid of $p_errs madness --Sampo
+# 9.11.2001, added EGD (entropy gathering daemon) reference info --Sampo
+# 7.12.2001, Added proxy support by Bruno De Wolf <bruno.dewolf@@pandora._be>
+# $Id: SSLeay.pm,v 1.5 2001/11/06 14:13:53 sampo Exp $
 #
 # The distribution and use of this module are subject to the conditions
 # listed in LICENSE file at the root of OpenSSL-0.9.6a
@@ -60,12 +63,13 @@ $Net::SSLeay::slowly = 0;  # don't change here, use
 #
 # N.B. /dev/urandom does not exit on all systems, such as Solaris. In that
 #      case you should get a third party package that emulates /dev/urandom
-#      (e.g. via named pipe) or supply a random number file.
+#      (e.g. via named pipe) or supply a random number file. Some such
+#      packages are documented in Caveat section of the POD documentation.
 
 $Net::SSLeay::random_device = '/dev/urandom';
 $Net::SSLeay::how_random = 512;
 
-$VERSION = '1.09';
+$VERSION = '1.10';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -393,8 +397,7 @@ $CRLF = "\x0d\x0a";  # because \r\n is not fully portable
 
 sub print_errs {
     my ($msg) = @_;
-    my ($count, $err) = (0,0);
-    my ($errs, $e);
+    my ($count, $err, $errs, $e) = (0,0,'');
     while ($err = ERR_get_error()) {
         $count ++;
 	$e = "$msg $$: $count - " . ERR_error_string($err) . "\n";
@@ -450,24 +453,11 @@ Net::SSLeay - Perl extension for using OpenSSL or SSLeay
 			   'Basic ' . MIME::Base64::encode("$user:$pass"))
 	      );
 
-  ($page, $result, %headers) =                                   # 2c
-         = get_https('www.bacus.pt', 443, '/protected.html',
-	      make_headers(Authorization =>
-			   'Basic ' . MIME::Base64::encode("$user:$pass")),
-	      '', $mime_type6, $path_to_crt7, $path_to_key8);
-
   ($page, $response, %reply_headers)
 	 = post_https('www.bacus.pt', 443, '/foo.cgi', '',       # 3
 		make_form(OK   => '1',
 			  name => 'Sampo'
 		));
-
-  ($page, $response, %reply_headers)
-	 = post_https('www.bacus.pt', 443, '/foo.cgi',           # 3b
-	      make_headers('Authorization' =>
-			   'Basic ' . MIME::Base64::encode("$user:$pass")),
-	      make_form(OK   => '1', name => 'Sampo'),
-	      $mime_type6, $path_to_crt7, $path_to_key8);
 
   $reply = sslcat($host, $port, $request);                       # 4
 
@@ -506,9 +496,6 @@ hosting easy) and Accept (reportedly needed by IIS) headers.
 Case 2b demonstrates how to get password protected page. Refer to
 HTTP protocol specifications for further details (e.g. RFC2617).
 
-Case 2c demonstrates getting password protected page that also requires
-client certificate.
-
 Case 3 invokes post_https() to submit a HTML/CGI form to secure
 server. First four arguments are equal to get_https() (note that empty
 string ('') is passed as header argument). The fifth argument is the
@@ -516,9 +503,6 @@ contents of the form formatted according to CGI specification. In this
 case the helper function make_https() is used to do the formatting,
 but you could pass any string. The post_https() automatically adds
 Content-Type and Content-Length headers to the request.
-
-Case 3b is full blown post to secure server that requires both password
-authentication and client certificate, just like in case 2c.
 
 Case 4 shows the fundamental sslcat() function (inspired in spirit by
 netcat utility :-). Its your swiss army knife that allows you to
@@ -529,6 +513,114 @@ sslcat() is just a transport.
 The $trace global variable can be used to control the verbosity of high
 level functions. Level 0 guarantees silence, level 1 (the default)
 only emits error messages.
+
+=head2 Alternate versions of the API
+
+The above mentioned functions actually return the response headers as
+a list, which only gets converted to hash upon assignment (this
+assignment looses information if the same header occurs twice, as may
+be the case with cookies). There are also other variants of the
+functions that return unprocessed headers and that return a reference
+to a hash.
+
+  ($page, $response, @headers) = get_https('www.bacus.pt', 443, '/');
+  for ($i = 0; $i < $#headers; $i+=2) {
+      print "$headers[$i] = " . $headers[$i+1] . "\n";
+  }
+  
+  ($page, $response, $headers) = get_https3('www.bacus.pt', 443, '/');
+  print "$headers\n";
+
+  ($page, $response, %headers_ref) = get_https4('www.bacus.pt', 443, '/');
+  for $k (sort keys %{headers_ref}) {
+      for $v (@{$headers_ref{$k}}) {
+	  print "$k = $v\n";
+      }
+  }
+
+All of the above code fragments accomplish the same thing: display all
+values of all headers. The API functions ending in "3" return the
+headers simply as a scalar string and it is up to the application to
+split them up. The functions ending in "4" return a reference to
+hash of arrays (see perlref and perllol manual pages if you are
+not familiar with complex perl data structures). To access single value
+of such header hash you would do something like
+
+    print $headers_ref{COOKIE}[0];
+
+=head2 Using client certificates
+
+Secure web communications are encrypted using symmetric crypto keys
+exchanged using encryption based on the certificate of the
+server. Therefore in all SSL connections the server must have a
+certificate. This serves both to authenticate the server to the
+clients and to perform the key exchange.
+
+Sometimes it is necessary to authenticate the client as well. Two
+options are available: http basic authentication and client side
+certificate. The basic authentication over https is actually quite
+safe because https guarantees that the password will not travel in
+clear. Never-the-less, problems like easily guessable passwords
+remain. The client certificate method involves authentication of the
+client at SSL level using a certificate. For this to work, both the
+client and the server will have certificates (which typically are
+different) and private keys.
+
+The API functions outlined above accept additional arguments that
+allow one to supply the client side certificate and key files. The
+format of these files is the same as used for server certificates and
+the caveat about encrypting private key applies.
+
+  ($page, $result, %headers) =                                   # 2c
+         = get_https('www.bacus.pt', 443, '/protected.html',
+	      make_headers(Authorization =>
+			   'Basic ' . MIME::Base64::encode("$user:$pass")),
+	      '', $mime_type6, $path_to_crt7, $path_to_key8);
+
+  ($page, $response, %reply_headers)
+	 = post_https('www.bacus.pt', 443, '/foo.cgi',           # 3b
+	      make_headers('Authorization' =>
+			   'Basic ' . MIME::Base64::encode("$user:$pass")),
+	      make_form(OK   => '1', name => 'Sampo'),
+	      $mime_type6, $path_to_crt7, $path_to_key8);
+
+Case 2c demonstrates getting password protected page that also requires
+client certificate, i.e. it is possible to use both authentication
+methods simultaneously.
+
+Case 3b is full blown post to secure server that requires both password
+authentication and client certificate, just like in case 2c.
+
+Note: Client will not send a certificate unless the server requests one.
+This is typically achieved by setting verify mode to VERIFY_PEER on the
+server:
+
+  Net::SSLeay::set_verify(ssl, Net::SSLeay::VERIFY_PEER, 0);
+
+See perldoc ~openssl/doc/ssl/SSL_CTX_set_verify.pod for full description.
+
+=head2 Working through Web proxy
+
+Net::SSLeay can use a web proxy to make its connections. You need to
+first set the proxy host and port using set_proxy() and then just
+use the normal API functions, e.g:
+
+  Net::SSLeay::set_proxy('gateway.myorg.com', 8080);
+  ($page) = get_https('www.bacus.pt', 443, '/');
+
+If your proxy requires authentication, you can supply username and
+password as well
+
+  Net::SSLeay::set_proxy('gateway.myorg.com', 8080, 'joe', 'salainen');
+  ($page, $result, %headers) =
+         = get_https('www.bacus.pt', 443, '/protected.html',
+	      make_headers(Authorization =>
+			   'Basic ' . MIME::Base64::encode("susie:pass"))
+	      );
+
+This example demonstrates case where we authenticate to the proxy as
+"joe" and to the final web server as "susie". Proxy authentication
+requires MIME::Base64 module to work.
 
 =head2 Convenience routines
 
@@ -660,7 +752,7 @@ get confused if you use perl I/O functions to manipulate your socket
 handle.
 
 If you need to select(2) on the socket, go right ahead, but be warned
-that SSLeay does some internal buffering so SSL_read does not always
+that OpenSSL does some internal buffering so SSL_read does not always
 return data even if socket selected for reading (just keep on
 selecting and trying to read). Net::SSLeay.pm is no different from the
 C language OpenSSL in this respect.
@@ -964,6 +1056,13 @@ machine and less activity provides less random events: a vicious circle.
 predictable "random" numbers. Some /dev/urandom emulation software
 however actually seems to implement /dev/random semantics. Caveat emptor.
 
+I've been pointed to two such daemons by Mik Firestone <mik@@speed.stdio._com>
+who has used them on Solaris 8
+
+   1. Entropy Gathering Daemon (EGD) at http://www.lothar.com/tech/crypto/
+   2. Pseudo-random number generating daemon (PRNGD) at
+        http://www.aet.tu-cottbus.de/personen/jaenicke/postfix_tls/prngd.html
+
 If you are using the low level API functions to communicate with other
 SSL implementations, you would do well to call
 
@@ -1019,26 +1118,33 @@ cases you should proceed wit great caution.
 
      /usr/local/ssl/bin/ssleay errstr 02001002
 
+Password is being asked for private key
+  This is normal behaviour if your private key is encrypted. Either
+  you have to supply the password or you have to use unencrypted
+  private key. Scan OpenSSL.org for the FAQ that explains how to
+  do this (or just study examples/makecert.pl which is used
+  during `make test' to do just that).
+
 =head1 VERSION
 
-This man page documents version 1.09, released on 25.9.2001.
+This man page documents version 1.10, released on 7.12.2001.
 
 There are currently two perl modules for using OpenSSL C
 library: Net::SSLeay (maintaned by me) and SSLeay (maintained by OpenSSL
 team). This module is the Net::SSLeay variant.
 
 At the time of making this release, Eric's module was still quite
-scetchy and could not be used for real work, thus I felt motivated to
+sketchy and could not be used for real work, thus I felt motivated to
 make this maintenance release. This module is not planned to evolve to
 contain any further functionality, i.e. I will concentrate on just
 making a simple SSL connection over TCP socket. Presumably Eric's own
 module will offer full SSLeay API one day.
 
-This module uses OpenSSL-0.9.6a. It does not work with any earlier version
-and there is no guarantee that it will work with later versions either,
-though as long as C API does not change, it should. This module
-requires perl5.005 (or better?) though I believe it would build with
-any perl5.002 or newer.
+This module uses OpenSSL-0.9.6b. It does not work with any earlier
+version and there is no guarantee that it will work with later
+versions either, though as long as C API does not change, it
+should. This module requires perl5.005, or 5.6.0 (or better?) though I
+believe it would build with any perl5.002 or newer.
 
 =head1 AUTHOR
 
@@ -1078,7 +1184,13 @@ backdoors, and general suitability for your application.
   <http://home.netscape.com/newsref/std/SSL.html>  - SSL Draft specification
   <http://www.w3c.org>                     - HTTP specifications
   <http://www.ietf.org/rfc/rfc2617.txt>    - How to send password
-
+  <http://www.lothar.com/tech/crypto/>     - Entropy Gathering Daemon (EGD)
+  <http://www.aet.tu-cottbus.de/personen/jaenicke/postfix_tls/prngd.html>
+                           - pseudo-random number generating daemon (PRNGD)
+  perl(1)
+  perlref(1)
+  perllol(1)
+  perldoc ~openssl/doc/ssl/SSL_CTX_set_verify.pod
 =cut
 
 # ';
@@ -1098,6 +1210,7 @@ sub want_X509_lookup { want(shift) == 4 }
 sub open_tcp_connection {
     my ($dest_serv, $port) = @_;
     my ($errs);
+    
     $port = getservbyname  ($port, 'tcp') unless $port =~ /^\d+$/;
     my $dest_serv_ip = gethostbyname ($dest_serv);
     unless (defined($dest_serv_ip)) {
@@ -1109,14 +1222,14 @@ sub open_tcp_connection {
     my $sin = sockaddr_in($port, $dest_serv_ip);
     
     warn "Opening connection to $dest_serv:$port (" .
-	inet_ntoa($dest_serv_ip) . ")\n" if $trace>2;
+	inet_ntoa($dest_serv_ip) . ")" if $trace>2;
     
     my $proto = getprotobyname('tcp');
     if (socket (SSLCAT_S, &PF_INET, &SOCK_STREAM, $proto)) {
-        warn "next connect\n" if $trace>3;
+        warn "next connect" if $trace>3;
         if (CORE::connect (SSLCAT_S, $sin)) {
             my $old_out = select (SSLCAT_S); $| = 1; select ($old_out);
-            warn "connected to $dest_serv, $port\n" if $trace>3;
+            warn "connected to $dest_serv, $port" if $trace>3;
             return wantarray ? (1, undef) : 1; # Success
         }
     }
@@ -1124,6 +1237,26 @@ sub open_tcp_connection {
     warn $errs if $trace;
     close SSLCAT_S;
     return wantarray ? (0, $errs) : 0; # Fail
+}
+
+### Open connection via standard web proxy, if one was defined
+### using set_proxy().
+
+sub open_proxy_tcp_connection {
+    my ($dest_serv, $port) = @_;
+    
+    return open_tcp_connection($dest_serv, $port) if !$proxyhost;
+    
+    warn "Connect via proxy: $proxyhost:$proxyport" if $trace>2;
+    my @ret = open_tcp_connection($proxyhost, $proxyport);
+    return wantarray ? @ret : 0 if !$ret[0];  # Connection fail
+    
+    warn "Asking proxy to connect to $dest_serv:$port" if $trace>2;
+    print SSLCAT_S "CONNECT $dest_serv:$port HTTP/1.0$proxyauth$CRLF$CRLF";
+    my $line = <SSLCAT_S>; 
+    warn "Proxy response: $line" if $trace>2;
+    
+    return wantarray ? (1,undef) : 1;  # Success
 }
 
 ###
@@ -1179,8 +1312,7 @@ sub ssl_write_all {
 	    (split ' ', `cat /proc/$$/stat`)[22] : 'vm_unknown';
 	warn "  written so far $wrote:$written bytes (VM=$vm)\n" if $trace>2;
 	
-	my $p_errs = print_errs('SSL_write');
-	$errs .= $p_errs if defined $p_errs;
+	$errs .= print_errs('SSL_write');
 	return (wantarray ? (undef, $errs) : undef) if $errs;
     }
     return wantarray ? ($written, $errs) : $written;
@@ -1217,12 +1349,12 @@ sub ssl_read_until ($;$$) {
 }
 
 # ssl_read_CRLF($ssl [, $max_length])
-sub ssl_read_CRLF ($;$) { ssl_read_until($_[0], chr(13).chr(10), $_[1]) }
+sub ssl_read_CRLF ($;$) { ssl_read_until($_[0], $CRLF, $_[1]) }
 
 # ssl_write_CRLF($ssl, $message) writes $message and appends CRLF
 sub ssl_write_CRLF ($$) { 
   # the next line uses less memory but might use more network packets
-  return ssl_write_all($_[0], $_[1]) + ssl_write_all($_[0], chr(13).chr(10));
+  return ssl_write_all($_[0], $_[1]) + ssl_write_all($_[0], $CRLF);
 
   # the next few lines do the same thing at the expense of memory, with
   # the chance that it will use less packets, since CRLF is in the original
@@ -1231,7 +1363,7 @@ sub ssl_write_CRLF ($$) {
   #my $data_ref;
   #if (ref $_[1]) { $data_ref = $_[1] }
   # else { $data_ref = \$_[1] }
-  #my $message = $$data_ref .  chr(13).chr(10);
+  #my $message = $$data_ref . $CRLF;
   #return ssl_write_all($_[0], \$message);
 }
 
@@ -1240,8 +1372,7 @@ sub ssl_write_CRLF ($$) {
 sub dump_peer_certificate ($) {
     my ($ssl) = @_;
     my $cert = get_peer_certificate($ssl);
-    my $p_errs = print_errs('get_peer_certificate');
-    return if defined($p_errs);
+    return if print_errs('get_peer_certificate');
     print "no cert defined\n" if !defined($cert);
     # Cipher=NONE with empty cert fix
     if (defined($cert) && $cert == 0) {
@@ -1270,7 +1401,7 @@ sub randomize (;$$) {
 	warn "Random number generator not seeded!!!" if $trace;
     }
     
-    RAND_load_file($rn_seed_file, -s _) if -r $rnsf;
+    RAND_load_file($rn_seed_file, -s _) if $rnsf;
     RAND_seed($seed) if $seed;
     RAND_egd($egd_path) if -S $egd_path;
     RAND_load_file($Net::SSLeay::random_device, $Net::SSLeay::how_random/8)
@@ -1293,7 +1424,7 @@ sub sslcat { # address, port, message, $crt, $key --> returns reply
     my ($dest_serv, $port, $out_message, $crt_path, $key_path) = @_;
     my ($ctx, $ssl, $got, $errs, $written);
     
-    ($got, $errs) = open_tcp_connection($dest_serv, $port, \$errs);
+    ($got, $errs) = open_proxy_tcp_connection($dest_serv, $port, \$errs);
     return (wantarray ? (undef, $errs) : undef) unless $got;
     
     ### Do SSL negotiation stuff
@@ -1381,9 +1512,9 @@ cleanup2:
 
 sub https_cat { # address, port, message --> returns reply
     my ($dest_serv, $port, $out_message, $crt_path, $key_path) = @_;
-    my ($ctx, $ssl, $got, $errs, $written, $p_errs);
+    my ($ctx, $ssl, $got, $errs, $written);
     
-    ($got, $errs) = open_tcp_connection($dest_serv, $port, \$errs);
+    ($got, $errs) = open_proxy_tcp_connection($dest_serv, $port, \$errs);
     return (wantarray ? (undef, $errs) : undef) unless $got;
 	    
     ### Do SSL negotiation stuff
@@ -1453,12 +1584,10 @@ sub https_cat { # address, port, message --> returns reply
 
 cleanup:
     free ($ssl);
-    $p_errs = print_errs('SSL_free');
-    $errs .= $p_errs if defined $p_errs;
+    $errs .= print_errs('SSL_free');
 cleanup2:
     CTX_free ($ctx);
-    $p_errs = print_errs('CTX_free');
-    $errs .= $p_errs if defined $p_errs;
+    $errs .= print_errs('CTX_free');
     close SSLCAT_S;    
     return wantarray ? ($got, $errs) : $got;
 }
@@ -1481,6 +1610,16 @@ sub set_cert_and_key ($$$) {
 ### Old deprecated API
 
 sub set_server_cert_and_key ($$$) { &set_cert_and_key }
+
+### Set up to use web proxy
+
+sub set_proxy ($$;**) {
+    ($proxyhost, $proxyport, $proxyuser, $proxypass) = @_;
+    require MIME::Base64;
+    $proxyauth = 'Proxy-authorization: basic '
+	. MIME::Base64::encode("$proxyuser:$proxypass", "")
+	    if $proxyuser;
+}
 
 ###
 ### Easy https manipulation routines
@@ -1512,7 +1651,7 @@ sub make_headers {
     return $headers;
 }
 
-sub do_https2 {
+sub do_https3 {
     my ($method, $site, $port, $path, $headers,
 	$content, $mime_type, $crt_path, $key_path) = @_;
     my ($response, $page, $errs, $http, $h,$v);
@@ -1534,6 +1673,14 @@ sub do_https2 {
     $http = '' if !defined $http;
     ($headers, $page) = split /\s?\n\s?\n/, $http, 2;
     ($response, $headers) = split /\s?\n/, $headers, 2;
+    return ($page, $response, $headers);
+}
+
+### do_https2() is a legacy version in the sense that it is unable
+### to return all instances of duplicate headers.
+
+sub do_https2 {
+    my ($page, $response, $headers) = &do_https3;
     return ($page, $response,
 	    map( { ($h,$v)=/^(\S+)\:\s*(.*)$/; (uc($h),$v); }
 		split(/\s?\n/, $headers)
@@ -1541,10 +1688,33 @@ sub do_https2 {
 	    );
 }
 
+### Returns headers as a hash where multiple instances of same header
+### are handled correctly.
+
+sub do_https4 {
+    my ($page, $response, $headers) = &do_https3;
+    my %hr = ();
+    for my $hh (split /\s?\n/, $headers) {
+	my ($h,$v)=/^(\S+)\:\s*(.*)$/;
+	push @{$hr{uc($h)}}, $v;
+    }
+    return ($page, $response, \%hr);
+}
+
 sub get_https ($$$;***)  { do_https2(GET  => @_) }
 sub post_https ($$$;***) { do_https2(POST => @_) }
 sub put_https ($$$;***)  { do_https2(PUT  => @_) }
 sub head_https ($$$;***) { do_https2(HEAD => @_) }
+
+sub get_https3 ($$$;***)  { do_https3(GET  => @_) }
+sub post_https3 ($$$;***) { do_https3(POST => @_) }
+sub put_https3 ($$$;***)  { do_https3(PUT  => @_) }
+sub head_https3 ($$$;***) { do_https3(HEAD => @_) }
+
+sub get_https4 ($$$;***)  { do_https4(GET  => @_) }
+sub post_https4 ($$$;***) { do_https4(POST => @_) }
+sub put_https4 ($$$;***)  { do_https4(PUT  => @_) }
+sub head_https4 ($$$;***) { do_https4(HEAD => @_) }
 
 ### Legacy
 # ($page, $respone_or_err, %headers) = do_https(...);
@@ -1556,6 +1726,6 @@ sub do_https {
     do_https2($method, $site, $port, $path, $headers,
 	     $content, $mime_type, $crt_path, $key_path);
 }
-
+ 
 1;
 __END__

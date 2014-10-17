@@ -1,8 +1,9 @@
+# $Id: Handle.pm,v 1.2 2001/09/28 20:17:27 sampo Exp $
+
 package Net::SSLeay::Handle;
 
 require 5.005_03;
 use strict;
-use warnings;
 
 use Socket;
 use Net::SSLeay;
@@ -12,7 +13,7 @@ require Exporter;
 use vars qw(@ISA @EXPORT_OK $VERSION);
 @ISA = qw(Exporter);
 @EXPORT_OK = qw(shutdown);
-$VERSION = '0.51';
+$VERSION = '0.52';
 
 #=== Class Variables ==========================================================
 #

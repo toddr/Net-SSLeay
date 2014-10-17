@@ -2,6 +2,7 @@ README - Net::SSLeay Perl module for using OpenSSL
 
 25.9.2001, Sampo Kellomaki <sampo@iki.fi>
 Version: 1.09
+$Id: README,v 1.4 2001/09/28 20:24:11 sampo Exp $
 
 1.09: added many utlility functions of OpenSSL API, better old perl support
 1.08: 64 bit fixes, windows fixes, fixed extra newline with auth bug

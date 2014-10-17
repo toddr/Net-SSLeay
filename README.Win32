@@ -101,7 +101,7 @@ ind it in
 9. Try to find out if things work ..... You might do this in the examples direct
 ory:
 
-   (1) ssleay.exe s_server -cert cert.pem -key key.pem -accept 3000 -www
+   (1) openssl.exe s_server -cert cert.pem -key key.pem -accept 3000 -www
        (Password is "12345")
    (2) perl callback.pl localhost 3000 \usr\local\ssl\certs cert.pem key.pem
        (Password provided by callback!)

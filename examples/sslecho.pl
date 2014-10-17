@@ -3,6 +3,8 @@
 #
 # Copyright (c) 1996,1998 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
 # Date:   27.6.1996, 8.6.1998
+# 7.12.2001, added more support for client side certificate testing --Sampo
+# $Id$
 #
 # Usage: ./sslecho.pl *port* *cert.pem* *key.pem*
 #
@@ -40,7 +42,7 @@ print "sslecho: Creating SSL context...\n" if $trace>1;
 $ctx = Net::SSLeay::CTX_new () or die_now("CTX_new ($ctx): $!\n");
 print "sslecho: Setting cert and RSA key...\n" if $trace>1;
 Net::SSLeay::CTX_set_cipher_list($ctx,'ALL');
-Net::SSLeay::set_server_cert_and_key($ctx, $cert_pem, $key_pem) or die "key";
+Net::SSLeay::set_cert_and_key($ctx, $cert_pem, $key_pem) or die "key";
 
 while (1) {
     
@@ -81,6 +83,9 @@ while (1) {
     print "sslecho $$: got " . length($got) . " bytes\n" if $trace==2;
     print "sslecho: Got `$got' (" . length ($got) . " chars)\n" if $trace>2;
     $got = uc $got;
+    if ($got eq 'CLIENT-CERT-TEST') {
+	$got .= Net::SSLeay::dump_peer_certificate($ssl) . "END CERT\n";
+    }
     Net::SSLeay::ssl_write_all($ssl, $got) or die "$$: ssl write failed";
     $got = '';  # in case it was huge
     
