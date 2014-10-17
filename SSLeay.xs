@@ -28,8 +28,10 @@
  *            Fixed a problem with CTX_set_tmp_rsa and CTX_set_tmp_dh
  *            args incorrect
  *            --mikem@open.com_.au
+ * 10.8.2002, Added SSL_peek patch to ssl_read_until from 
+ *            Peter Behroozi <peter@@fhpwireless_.com> --Sampo
  *
- * $Id: SSLeay.xs,v 1.9 2002/07/17 15:54:07 sampo Exp $
+ * $Id: SSLeay.xs,v 1.10 2002/08/16 20:58:17 sampo Exp $
  * 
  * The distribution and use of this module are subject to the conditions
  * listed in LICENSE file at the root of OpenSSL-0.9.6b
@@ -678,6 +680,12 @@ constant(char* name)
 #endif
 	break;
     case 'O':
+	if (strEQ(name, "OPENSSL_VERSION_NUMBER"))
+#ifdef OPENSSL_VERSION_NUMBER
+            return OPENSSL_VERSION_NUMBER;
+#else
+	    goto not_there;
+#endif
 	if (strEQ(name, "OP_MICROSOFT_SESS_ID_BUG"))
 #ifdef SSL_OP_MICROSOFT_SESS_ID_BUG
 	    return SSL_OP_MICROSOFT_SESS_ID_BUG;
@@ -1865,6 +1873,20 @@ SSL_read(s,max=sizeof(buf))
      if ((got = SSL_read(s, buf, max)) >= 0)
          sv_setpvn( ST(0), buf, got);
 
+void
+SSL_peek(s,max=sizeof(buf))
+     SSL *   s
+     PREINIT:
+     char buf[32768];
+     INPUT:
+     int     max
+     PREINIT:
+     int got;
+     CODE:
+     ST(0) = sv_newmortal();   /* Undefined to start with */
+     if ((got = SSL_peek(s, buf, max)) >= 0)
+         sv_setpvn( ST(0), buf, got);
+
 int
 SSL_write(s,buf)
      SSL *   s
@@ -2760,12 +2782,6 @@ SSL_get_verify_result(ssl)
 
 int 
 SSL_library_init()
-
-int 	
-SSL_peek(ssl,buf,num)
-     SSL *	ssl
-     void *	buf
-     int 	num
 
 int 
 SSL_renegotiate(s)

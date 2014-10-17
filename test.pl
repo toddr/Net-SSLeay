@@ -7,7 +7,7 @@
 #            Gordon Lack <gml4410@ggr.co.uk> --Sampo
 # 7.12.2001, added test cases for client certificates and proxy SSL --Sampo
 # 28.5.2002, added contributed test cases for callbacks --Sampo
-# $Id: test.pl,v 1.5 2002/06/05 18:25:46 sampo Exp $
+# $Id: test.pl,v 1.6 2002/08/16 20:58:41 sampo Exp $
 #
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl test.pl'
@@ -33,7 +33,7 @@ my $trace = $ENV{TEST_TRACE} || 1;  # 0=silent, 1=verbose, 2=debugging
 
 my $mb = 1;     # size of the bulk tests
 my $errors = 0;
-my $silent = $trace>1 ? '' : '>/dev/null 2>/dev/null';
+my $silent = $trace>1 ? '' : '>makecert.out 2>makecert.err';
 my ($pid,$redir,$res,$bytes,$secs);
 
 sub test {
@@ -64,12 +64,12 @@ unless (-r $cert_pem && -r $key_pem) {
 	if $trace;
     
     open F, "openssl_path" or die "Can't read `./openssl_path': $!\n";
-    $ssleay_path = <F>;
+    $exe_path = <F>;
     close F;
-    chomp $ssleay_path;
+    chomp $exe_path;
 
     $ENV{RANDFILE} = '.rnd';  # not random, but good enough
-    system "$perl examples/makecert.pl examples $ssleay_path $silent";
+    system "$perl examples/makecert.pl examples $exe_path $silent";
     print "    certificate done.\n\n" if $trace;
 }
 
@@ -122,18 +122,23 @@ print &test(10, ($res =~ /OK\s*$/));
 
 kill $pid;  # We don't need that server any more
 
-$res = `$perl examples/cli-cert.pl $cert_pem $key_pem examples`;
-print $res if $trace>1;
-print &test(11, ($res =~ /client cert: Subject Name: \/C=XX/));
+if ($exe_path !~ /\.exe$/i) {  # Not Windows where fork does not work
+    $res = `$perl examples/cli-cert.pl $cert_pem $key_pem examples`;
+    print $res if $trace>1;
+    print &test(11, ($res =~ /client cert: Subject Name: \/C=XX/));
 
-print "\tSending $mb MB over pipes, may take a while (and some VM)...\n"
-    if $trace;
-$secs = time;
-$res = `$perl examples/stdio_bulk.pl $cert_pem $key_pem $bytes`;
-print $res if $trace>1;
-$secs = (time - $secs) || 1;
-print "\t\t...took $secs secs (" . int($mb*1024/$secs). " KB/s)\n" if $trace;
-print &test(12, ($res =~ /OK\s*$/));
+    print "\tSending $mb MB over pipes, may take a while (and some VM)...\n"
+	if $trace;
+    $secs = time;
+    $res = `$perl examples/stdio_bulk.pl $cert_pem $key_pem $bytes`;
+    print $res if $trace>1;
+    $secs = (time - $secs) || 1;
+    print "\t\t...took $secs secs (".int($mb*1024/$secs)." KB/s)\n" if $trace;
+    print &test(12, ($res =~ /OK\s*$/));
+} else {
+    print "skipped on Windows 11\n";
+    print "skipped on Windows 12\n";
+}
 
 sub provide_password {
     return '1234';

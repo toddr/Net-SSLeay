@@ -7,7 +7,7 @@
 #	     <eselber@briefcase.com> that made Windows builds painful --Sampo
 # 20.8.2001, tweaked path editing, thanks to Gordon Lack
 #            <gml4410@@ggr.co.uk> --Sampo
-# $Id: Makefile.PL,v 1.9 2002/06/15 10:58:24 sampo Exp $
+# $Id: Makefile.PL,v 1.10 2002/08/16 20:56:28 sampo Exp $
 #
 # Configuration script for Net::SSLeay.pm
 
@@ -48,7 +48,7 @@ $openssl_path = shift if @ARGV && $ARGV[0] ne '--';
 
 shift if $ARGV[0] eq '--';   # Rest of args are for MakeMaker
 
-$openssl_vers = '0.9.6d';
+$openssl_vers = '0.9.6g';
 
 print "Checking for OpenSSL-$openssl_vers or newer...\n";
 
@@ -59,6 +59,8 @@ while (1) {
     last if -x $exe_path;
     $exe_path = "$openssl_path/sbin/openssl";
     last if -x $exe_path;
+    $exe_path = "$openssl_path/out32dll/openssl.exe";
+    last if -x $exe_path;
 
     print "I could not find your OpenSSL in `$openssl_path'\n";
     print "Please provide OpenSSL-$openssl_vers installation directory (get from\n"
@@ -67,8 +69,6 @@ while (1) {
     $openssl_path = <STDIN>;
     chomp $openssl_path;
 }
-
-($openssl_bin_path = $exe_path) =~ s%/openssl(\.exe)?$%%;
 
 $vers = `$exe_path version`
     or die "Couldn't run `$exe_path' ($?)\n";
@@ -92,11 +92,11 @@ warn "That's is newer than what this module was tested with ($openssl_vers). You
     . "available. Everything will probably work OK, though.\n"
     if $maj > 0.9 || $min > 6;
 
-warn "openssl-0.9.6a and some earlier versions have weaknesses and also 0.9.6b has some (nonfatal) bugs (read CHANGES file in the openssl-0.9.6d distribution, www.openssl.org), upgrading to openssl-0.9.6d is recommended.\n"
-    if $maj eq '0.9' && $min == 6 && $letter lt 'd';
+warn "openssl-0.9.6d and earlier versions have security flaws, see advisory at www.openssl.org, upgrading to openssl-$openssl_vers is recommended.\n"
+    if $maj eq '0.9' && $min == 6 && $letter lt 'e';
 
 open F, ">openssl_path" or die "Can't write ./openssl_path: $!";
-print F $openssl_bin_path;  # used by test.pl and examples/makecert.pl
+print F $exe_path;  # used by test.pl and examples/makecert.pl
 close F;
 
 ### The windows option tweaking details supplied by
@@ -162,8 +162,8 @@ my %configParams = (
     DEFINE	=> '',     # e.g., '-DHAVE_SOMETHING' 
     DISTNAME    => 'Net_SSLeay.pm',
     dist        => { COMPRESS => 'gzip', SUFFIX => 'gz', },
-    LIBS	=> ["-L$openssl_path -L$openssl_path/lib $libs"],
-    INC 	=> "-I$openssl_path/include",
+    LIBS	=> ["-L$openssl_path -L$openssl_path/lib -L$openssl_path/out32dll $libs"],
+    INC 	=> "-I$openssl_path/include -I$openssl_path/inc32",
     OPTIMIZE    => $optimize,
 # Uncomment (and edit) following for debugging with gdb
 #    LIBS	=> ['-L/usr/src/openssl-0.9.3a -lssl -lcrypto'],

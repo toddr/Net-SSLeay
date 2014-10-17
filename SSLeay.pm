@@ -25,7 +25,9 @@
 # 17.5.2002, Added BIO_s_mem, BIO_new, BIO_free, BIO_write, BIO_read 
 #            BIO_eof, BIO_pending, BIO_wpending, RSA_generate_key, RSA_free
 #            --mikem@open._com.au
-# $Id: SSLeay.pm,v 1.16 2002/07/17 15:55:05 sampo Exp $
+# 10.8.2002, Added SSL_peek patch to ssl_read_until from 
+#            Peter Behroozi <peter@@fhpwireless_.com> --Sampo
+# $Id: SSLeay.pm,v 1.17 2002/08/16 20:57:54 sampo Exp $
 #
 # The distribution and use of this module are subject to the conditions
 # listed in LICENSE file at the root of OpenSSL-0.9.6c
@@ -81,7 +83,7 @@ $Net::SSLeay::slowly = 0;  # don't change here, use
 $Net::SSLeay::random_device = '/dev/urandom';
 $Net::SSLeay::how_random = 512;
 
-$VERSION = '1.18';
+$VERSION = '1.19';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -175,6 +177,7 @@ $VERSION = '1.18';
 	MT_SERVER_HELLO
 	MT_SERVER_VERIFY
 	NOTHING
+	OPENSSL_VERSION_NUMBER
 	PE_BAD_CERTIFICATE
 	PE_NO_CERTIFICATE
 	PE_NO_CIPHER
@@ -308,6 +311,7 @@ $VERSION = '1.18';
 	get_fd
 	read
 	write
+	peek
 	use_RSAPrivateKey
 	use_RSAPrivateKey_ASN1
 	use_RSAPrivateKey_file
@@ -1337,6 +1341,7 @@ backdoors, and general suitability for your application.
   perlref(1)
   perllol(1)
   perldoc ~openssl/doc/ssl/SSL_CTX_set_verify.pod
+
 =cut
 
 # ';
@@ -1472,6 +1477,7 @@ sub ssl_write_all {
 
 sub ssl_read_until ($;$$) {
     my ($ssl,$delim, $max_length) = @_;
+    local $[;
 
     # guess the delim string if missing
     if ( ! defined $delim ) {           
@@ -1482,14 +1488,50 @@ sub ssl_read_until ($;$$) {
 
     my ($got);
     my $reply = '';
-    while (!defined $max_length || length $reply < $max_length) {
-        $got = Net::SSLeay::read($ssl,1);  # one by one
-        last if print_errs('SSL_read');
-	debug_read(\$reply, \$got) if $trace>1;
-	last if $got eq '';
-        $reply .= $got;
-	last if $len_delim
-	    && substr($reply, blength($reply)-$len_delim) eq $delim;
+    
+    # If we have OpenSSL 0.9.6a or later, we can use SSL_peek to
+    # speed things up.
+    # N.B. 0.9.6a has security problems, so the support for
+    #      anything earlier than 0.9.6e will be dropped soon.
+    if (&Net::SSLeay::OPENSSL_VERSION_NUMBER >= 0x0090601f) {
+	$max_length = 2000000000 unless (defined $max_length);
+	my ($pending, $peek_length, $found, $done);
+	while (blength($reply) < $max_length and !$done) {
+	    #Block if necessary until we get some data
+	    $got = Net::SSLeay::peek($ssl,1);
+	    last if print_errs('SSL_peek');
+
+	    $pending = Net::SSLeay::pending($ssl) + blength($reply);
+	    $peek_length = ($pending > $max_length) ? $max_length : $pending;
+	    $peek_length -= blength($reply);
+	    $got = Net::SSLeay::peek($ssl, $peek_length);
+	    last if print_errs('SSL_peek');
+	    $peek_length = blength($got);
+	    $found = index($got, $delim);
+	    
+	    if ($found > -1) {
+		$got = Net::SSLeay::read($ssl, $found+$len_delim);
+		$done = 1;
+	    } else {
+		$got = Net::SSLeay::read($ssl, $peek_length);
+		$done = 1 if ($peek_length == $max_length - blength($reply));
+	    } 
+
+	    last if print_errs('SSL_read');
+	    debug_read(\$reply, \$got) if $trace>1;
+	    last if $got eq '';
+	    $reply .= $got;
+	}
+    } else {
+	while (!defined $max_length || length $reply < $max_length) {
+	    $got = Net::SSLeay::read($ssl,1);  # one by one
+	    last if print_errs('SSL_read');
+	    debug_read(\$reply, \$got) if $trace>1;
+	    last if $got eq '';
+	    $reply .= $got;
+	    last if $len_delim
+		&& substr($reply, blength($reply)-$len_delim) eq $delim;
+	}
     }
     return $reply;
 }

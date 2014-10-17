@@ -2,9 +2,11 @@ Building on Win 32 platforms
 ============================
 31.7.1999, Sampo Kellomaki <sampo@iki..fi>
 7.6.2002, reviewed and added comments, --Sampo
-$Id: README.Win32,v 1.3 2002/06/09 18:10:07 sampo Exp $
+16.8.2002, added comments by Marcel Bucher --Sampo
+$Id: README.Win32,v 1.4 2002/08/16 20:57:05 sampo Exp $
 
 This file is heavily based on work by Anton Roeckseisen <anton@_genua.de>
+Later insight by Marcel Bucher <marcle@bucher._cc>
 
 WARNING: I do not develop on Windows so I am not in position to test
 any of this stuff. As such, the Windows build is not officially
@@ -24,6 +26,63 @@ These instructions focus around native Windows environment. It should be
 noted that Cygwin environment, which is much more Unix like, has been
 used successfully to compile perl, OpenSSL, and Net::SSLeay. In that
 environment you just follow the Unix build instructions.
+
+Yet Another Windows Recipe by Marcel Bucher <marcle@bucher._cc>
+===============================================================
+
+Recipe for 1.19 (tested as of version 1.18)
+
+If you don't want to do an 'INSTALL' on OpenSSL, but leave it in the
+build directory on Windows, this is how you can get Net::SSLeay to
+work: ('install' of OpenSSL is rather kludgy on Windows...)
+
+My System: 
+----------
+        - Win2k SP2 (should also work on NT et al)
+        - VC6 SP4
+        - ActiveState Perl 5.6.0 build 613
+        - OpenSSL 0.9.6g
+        - Net-SSLeay 1.19
+
+OpenSSL:
+--------
+
+- Build OpenSSL as described in the instructions. I did:
+        unpack OpenSSL to <yourOpenSslDir>
+        cd <yourOpenSslDir>
+        perl Configure VC-WIN32
+        ms\do_masm.bat   (If you have an assembler, use do_ms.bat otherwise)
+        nmake -f ms\ntdll.mak (If you have an assembler,
+                               use ms\ntNoAsmDll.mak otherwise)
+        cd out32dll      (thats where the compiled files are)
+        ..\ms\test
+        
+- Copy the two OpenSSL dll's from <yourOpenSslDir>\Out32dll to
+  <WINDIR>/system32
+
+The OpenSSL includes will be in <yourOpenSslDir>\inc32.
+The OpenSSL libs and exe's will be in <yourOpenSslDir>\out32dll
+
+Net::SSLeay:
+------------
+
+        perl Makefile.pl -windows <yourOpenSslDir>
+        nmake
+	nmake test
+        nmake install
+
+Another recent recipe
+=====================
+
+For a recent (1.16) and thoroughly detailed success report,
+please see file
+
+	RECIPE.Win32
+
+by Hermann Kelley <hkelley@@secmon_.com> His report is in fact so good
+that you may consider using it as instructions. Thanks Hermann.
+
+------------- older stuff -----------
 
 Tested config:
 	- Net::SSLeay 1.02 w/Anton's patches
@@ -45,22 +104,14 @@ it makes your life easier).
 
 Please send any success reports, bug reports and comments to me.
 
-For a recent (1.16) and thoroughly detailed success report,
-please see file
-
-	RECIPE.Win32
-
-by Hermann Kelley <hkelley@@secmon_.com> His report is in fact so good
-that you may consider using it as instructions. Thanks Hermann.
-
-HOW TO DO IT (Sampo's speculation for recent versions)
-======================================================
+HOW TO DO IT (Sampo's speculation for recent versions (< 1.18))
+===============================================================
 
 1. Install VC++ 5.0 (or other ANSI C compiler?)
 
 2. Install ActivePerl from www.ActiveState.com (latest version)
 
-3. Install OpenSSL-0.9.6d on your system, take note of the path
+3. Install OpenSSL-0.9.6g on your system, take note of the path
    where it was installed. Good place is \openssl on the drive
    where you are building Net::SSLeay. Apparently INSTALL.W32 file
    in the openssl distribution offers two ways to install.
@@ -124,7 +175,8 @@ HOW TO DO IT (Anton I):
 Anton's comments follow...
 
 BIG THING: 
-==========
+----------
+
 The main point in getting it to work was to tell SSLeay to use the
 socket opened via perl with SSL_set_fd. The socket number needs some
 conversion with _get_osfhandle(fd) (See also SSLeay.xs)
@@ -133,7 +185,7 @@ The problem is I do not know how to reverse this behaviour... :-( so
 SSL_get_fd does not work!
 
 MINOR THINGS:
-=============
+-------------
 
 * I used some defines in compiling SSLeay 0.9.0b - so I provide my
 Makefile for tracking things down.... (SSLeay/ms/ntdll.mak) - probably
