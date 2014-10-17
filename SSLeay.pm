@@ -29,6 +29,13 @@
 #            Peter Behroozi <peter@@fhpwireless_.com> --Sampo
 # 21.8.2002, Added SESSION_get_master_key, SSL_get_client_random, SSL_get_server_random
 #            --mikem@open.com_.au
+# 2.9.2002,  Added SSL_CTX_get_cert_store, X509_STORE_add_cert, X509_STORE_add_crl
+#            X509_STORE_set_flags, X509_load_cert_file, X509_load_crl_file
+#            X509_load_cert_crl_file, PEM_read_bio_X509_CRL,
+#            constants for X509_V_FLAG_* in order to support certificate revocation lists.
+#            --mikem@open.com_.au
+# 6.9.2002,  fixed X509_STORE_set_flags to X509_STORE_CTX_set_flags, --Sampo
+# 19.9.2002, applied patch from Tim Engler <tim@burntcouch_.com>
 # $Id: SSLeay.pm,v 1.18 2002/08/21 17:52:41 sampo Exp $
 #
 # The distribution and use of this module are subject to the conditions
@@ -85,7 +92,7 @@ $Net::SSLeay::slowly = 0;  # don't change here, use
 $Net::SSLeay::random_device = '/dev/urandom';
 $Net::SSLeay::how_random = 512;
 
-$VERSION = '1.20';
+$VERSION = '1.21';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -297,6 +304,11 @@ $VERSION = '1.20';
 	VERIFY_PEER
 	WRITING
 	X509_LOOKUP
+	X509_V_FLAG_CB_ISSUER_CHECK
+	X509_V_FLAG_USE_CHECK_TIME
+	X509_V_FLAG_CRL_CHECK
+	X509_V_FLAG_CRL_CHECK_ALL
+	X509_V_FLAG_IGNORE_CRITICAL
 	CTX_new
 	CTX_v2_new
 	CTX_v3_new
@@ -375,6 +387,14 @@ $VERSION = '1.20';
 	X509_get_subject_name
         X509_NAME_oneline
 	X509_NAME_get_text_by_NID
+	CTX_get_cert_store
+	X509_STORE_add_cert
+	X509_STORE_add_crl
+	X509_STORE_CTX_set_flags
+	X509_load_cert_file
+	X509_load_crl_file
+	X509_load_cert_crl_file
+	PEM_read_bio_X509_CRL
 	die_if_ssl_error
 	die_now
 	print_errs
@@ -695,6 +715,46 @@ password as well
 This example demonstrates case where we authenticate to the proxy as
 "joe" and to the final web server as "susie". Proxy authentication
 requires MIME::Base64 module to work.
+
+=head2 Certificate verification and Certificate Revoocation Lists (CRLs)
+
+OpenSSL supports the ability to verify peer certificates. It can also optionally
+check peer certificate against a Certificate Revocation List (CRL) from teh certificates
+issuer. A CRL is a file, created by the certificate issuer that lists all the 
+certificates that ir previously signed, but which it now revokes. CRLs are in PEM format.
+
+You can enable Net::SSLeay CRL checking like this:
+
+	    &Net::SSLeay::X509_STORE_CTX_set_flags
+		(&Net::SSLeay::CTX_get_cert_store($ssl), 
+		 &Net::SSLeay::X509_V_FLAG_CRL_CHECK); 
+
+After setting this flag, if OpenSSL checks a peer's certificate, then it will attempt
+to find a CRL for the issuer. It does this by looking for a specially named file in
+the sercah directory specified by CTX_load_verify_locations. 
+CRL files are named with the hash of the issuers subject name, followed by .r0, .r1 etc.
+For example ab1331b2.r0, ab1331b2.r1. It will read all the .r files for the issuer,
+and then check for a revocation of the peer cerificate in all of them. 
+(You can also force it to look in a specific named CRL file., see below).
+You can find out the hash of the issuer subject name in a CRL with
+	openssl crl -in crl.pem -hash -noout
+
+If the peer certificate does not pass the revocation list, or if no CRL is found,
+then the handshaking fails with an error.
+
+You can also force OpenSSL to look for CRLs in one or more arbitrarily named files.
+
+my $bio = &Net::SSLeay::BIO_new_file($crlfilename, 'r');
+my $crl = &Net::SSLeay::PEM_read_bio_X509_CRL($bio);
+if ($crl)
+{
+    &Net::SSLeay::X509_STORE_add_crl(&Net::SSLeay::CTX_get_cert_store($ssl, $crl);
+}
+else
+{
+    error reading CRL....
+}
+
 
 =head2 Convenience routines
 
@@ -1519,10 +1579,30 @@ sub ssl_read_until ($;$$) {
 	    $got = Net::SSLeay::peek($ssl, $peek_length);
 	    last if print_errs('SSL_peek');
 	    $peek_length = blength($got);
-	    $found = index($got, $delim);
 	    
+	    #$found = index($got, $delim);  # Old and broken
+	    
+	    # the delimeter may be split across two gets, so we prepend
+	    # a little from the last get onto this one before we check
+	    # for a match
+	    my $match;
+	    if(blength($reply) >= blength($delim) - 1) {
+		#if what we've read so far is greater or equal
+		#in length of what we need to prepatch
+		$match = substr $reply, blength($reply) - blength($delim) + 1;
+	    } else {
+		$match = $reply;
+	    }
+
+	    $match .= $got;
+	    $found = index($match, $delim);
+
 	    if ($found > -1) {
-		$got = Net::SSLeay::read($ssl, $found+$len_delim);
+		#$got = Net::SSLeay::read($ssl, $found+$len_delim);
+		#read up to the end of the delimeter
+		$got = Net::SSLeay::read($ssl,
+					 $found + $len_delim
+					 - ((blength $match) - (blength $got)));
 		$done = 1;
 	    } else {
 		$got = Net::SSLeay::read($ssl, $peek_length);

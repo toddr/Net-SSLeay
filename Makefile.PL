@@ -159,7 +159,7 @@ my %configParams = (
     NAME	=> 'Net::SSLeay',
     VERSION_FROM => 'SSLeay.pm', # finds $VERSION
     DIR         => [ 'Net-SSLeay-Handle-0.50' ],
-    DEFINE	=> '',     # e.g., '-DHAVE_SOMETHING' 
+    DEFINE      => '-DPERL5',   # perl-5.8/gcc-3.2 needs this
     DISTNAME    => 'Net_SSLeay.pm',
     dist        => { COMPRESS => 'gzip', SUFFIX => 'gz', },
     LIBS	=> ["-L$openssl_path -L$openssl_path/lib -L$openssl_path/out32dll $libs"],

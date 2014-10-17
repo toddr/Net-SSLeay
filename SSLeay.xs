@@ -32,6 +32,13 @@
  *            Peter Behroozi <peter@@fhpwireless_.com> --Sampo
  * 21.8.2002, Added SESSION_get_master_key, SSL_get_client_random, SSL_get_server_random
  *            --mikem@open.com_.au
+ * 2.9.2002,  Added SSL_CTX_get_cert_store, X509_STORE_add_cert, X509_STORE_add_crl
+ *            X509_STORE_set_flags, X509_load_cert_file, X509_load_crl_file
+ *            X509_load_cert_crl_file, PEM_read_bio_X509_CRL
+ *            constants for X509_V_FLAG_*
+ *            --mikem@open.com_.au
+ * 6.9.2002,  applied Mike's patch and fixed X509_STORE_* to X509_STORE_CTX_*
+ *	      --Sampo
  *
  * $Id: SSLeay.xs,v 1.11 2002/08/21 17:52:42 sampo Exp $
  * 
@@ -1506,6 +1513,44 @@ constant(char* name)
 #else
 	    goto not_there;
 #endif
+
+	if (strEQ(name, "X509_V_FLAG_CB_ISSUER_CHECK"))
+#ifdef X509_V_FLAG_CB_ISSUER_CHECK
+	    return X509_V_FLAG_CB_ISSUER_CHECK;
+#else
+	    goto not_there;
+#endif
+
+	if (strEQ(name, "X509_V_FLAG_USE_CHECK_TIME"))
+#ifdef X509_V_FLAG_USE_CHECK_TIME
+	    return X509_V_FLAG_USE_CHECK_TIME;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "X509_V_FLAG_CRL_CHECK"))
+#ifdef X509_V_FLAG_CRL_CHECK
+	    return X509_V_FLAG_CRL_CHECK;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "X509_V_FLAG_CRL_CHECK_ALL"))
+#ifdef X509_V_FLAG_CRL_CHECK_ALL
+	    return X509_V_FLAG_CRL_CHECK_ALL;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "X509_V_FLAG_IGNORE_CRITICAL"))
+#ifdef X509_V_FLAG_IGNORE_CRITICAL
+	    return X509_V_FLAG_IGNORE_CRITICAL;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, ""))
+#ifdef SSL_X509_LOOKUP
+	    return ;
+#else
+	    goto not_there;
+#endif
 	break;
     case 'Y':
 	break;
@@ -2395,6 +2440,39 @@ X509_STORE_CTX_set_cert(x509_store_ctx,x)
      X509_STORE_CTX * x509_store_ctx
      X509 * x
 
+int 
+X509_STORE_add_cert(ctx, x)
+    X509_STORE *ctx
+    X509 *x
+
+int 
+X509_STORE_add_crl(ctx, x)
+    X509_STORE *ctx
+    X509_CRL *x
+
+void 
+X509_STORE_CTX_set_flags(ctx, flags)
+    X509_STORE_CTX *ctx
+    long flags
+
+int 
+X509_load_cert_file(ctx, file, type)
+    X509_LOOKUP *ctx
+    char *file
+    int type
+
+int 
+X509_load_crl_file(ctx, file, type)
+    X509_LOOKUP *ctx
+    char *file
+    int type
+
+int 
+X509_load_cert_crl_file(ctx, file, type)
+    X509_LOOKUP *ctx
+    char *file
+    int type
+
 
 ASN1_UTCTIME *
 X509_get_notBefore(cert)
@@ -2640,6 +2718,10 @@ void
 SSL_CTX_set_cert_store(ctx,store)
      SSL_CTX *     ctx
      X509_STORE *  store
+
+X509_STORE *
+SSL_CTX_get_cert_store(ctx)
+     SSL_CTX *     ctx
 
 void 
 SSL_CTX_set_cert_verify_callback(ctx,cb,arg)
@@ -3218,6 +3300,13 @@ X509_free(a)
 
 DH *
 PEM_read_bio_DHparams(bio,x=NULL,cb=NULL,u=NULL)
+	BIO  * bio
+	void * x
+	void * cb
+	void * u
+
+X509_CRL *
+PEM_read_bio_X509_CRL(bio,x=NULL,cb=NULL,u=NULL)
 	BIO  * bio
 	void * x
 	void * cb

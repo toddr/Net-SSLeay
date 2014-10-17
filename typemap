@@ -6,6 +6,8 @@ SSL *		T_IV
 RSA *		T_IV
 DH *		T_IV
 X509 *		T_IV
+X509_CRL *	T_IV
+X509_LOOKUP *	T_IV
 X509_NAME *	T_IV
 BIO *           T_IV
 BIO_METHOD *    T_IV

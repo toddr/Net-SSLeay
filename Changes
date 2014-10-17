@@ -153,3 +153,11 @@ Revision history for Perl extension Net::SSLeay.
 1.20  16.8.2002
 	- Additional patch by Peter Behroozi <peter@@fhpwireless_.com> --Sampo
 	- Patch by Mike McCauley mikem@open.com_.au
+1.21  6.9.2002
+	- Patch by Mike McCauley mikem@open.com_.au
+      19.9.2002
+	- applied patch from Tim Engler <tim@burntcouch_.com>
+      30.10.2002,
+        - perl-5.8/gcc-3.2 patch on Makefile.PL from
+	  Joern_Hoos@@notes.uni-paderborn._de, lucho@@galix._com,
+	  bellis@@saberlogic._com, and simonclewer@@superquote._com
