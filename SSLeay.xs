@@ -1,16 +1,37 @@
 /* SSLeay.xs - Perl module for using Eric Young's implementation of SSL
  *
- * Copyright (c) 1996,1998 Sampo Kellomaki <sampo@iki.fi>
+ * Copyright (c) 1996-1999 Sampo Kellomaki <sampo@iki.fi>
  * All Rights Reserved.
  *
  * 19.6.1998, Maintenance release to sync with SSLeay-0.9.0, --Sampo
  * 24.6.1998, added write_partial to support ssl_write_all in more
  *            memory efficient way. --Sampo
  * 8.7.1998,  Added SSL_(CTX)?_set_options and associated constants.
+ * 31.3.1999, Tracking OpenSSL-0.9.2b changes, dropping support for
+ *            earlier versions
+ * 30.7.1999, Tracking OpenSSL-0.9.3a changes, --Sampo
  * 
  * The distribution and use of this module are subject to the conditions
  * listed in COPYRIGHT file at the root of Eric Young's SSLeay-0.9.0
  * distribution (i.e. free, but mandatory attribution and NO WARRANTY).
+
+Removed, perhaps permanently?
+
+int
+SSL_add_session(ctx,ses)
+     SSL_CTX *          ctx
+     SSL_SESSION *      ses
+
+int
+SSL_remove_session(ctx,ses)
+     SSL_CTX *          ctx
+     SSL_SESSION *      ses
+
+void
+SSL_flush_sessions(ctx,tm)
+     SSL_CTX *          ctx
+     long               tm
+
  */
 
 #ifdef __cplusplus
@@ -23,10 +44,15 @@ extern "C" {
 }
 #endif
 
-#include <err.h>
-#include <lhash.h>
-#include <buffer.h>
-#include <ssl.h>
+/* OpenSSL-0.9.3a has some strange warning about this in
+ *    openssl/des.h
+ */
+#undef _
+
+#include <openssl/err.h>
+#include <openssl/lhash.h>
+#include <openssl/buffer.h>
+#include <openssl/ssl.h>
 
 /* Debugging output */
 
@@ -1420,6 +1446,9 @@ not_there:
 
 static SV * ssleay_verify_callback = (SV*)NULL;
 
+/* BROKEN! The verify callback arguments need to be cross checked
+ * from OpenSSL-0.9.2b source **** --Sampo */
+
 static int
 ssleay_verify_callback_glue (int ok, X509 *subj_cert, X509 *issuer_cert,
                       int depth, int errorcode, char* arg, STACK* cert_chain)
@@ -1634,6 +1663,37 @@ SSL_connect(s)
      SSL *   s
 
 
+#if defined(WIN32)
+
+int
+SSL_set_fd(s,fd)
+     SSL *   s
+     int     fd
+     CODE:
+     RETVAL = SSL_set_fd(s,_get_osfhandle(fd));
+     OUTPUT:
+     RETVAL
+
+int
+SSL_set_rfd(s,fd)
+     SSL *   s
+     int     fd
+     CODE:
+     RETVAL = SSL_set_rfd(s,_get_osfhandle(fd));
+     OUTPUT:
+     RETVAL
+
+int
+SSL_set_wfd(s,fd)
+     SSL *   s
+     int     fd
+     CODE:
+     RETVAL = SSL_set_wfd(s,_get_osfhandle(fd));
+     OUTPUT:
+     RETVAL
+
+#else
+
 int
 SSL_set_fd(s,fd)
      SSL *   s
@@ -1648,6 +1708,8 @@ int
 SSL_set_wfd(s,fd)
      SSL *   s
      int     fd
+
+#endif
 
 int
 SSL_get_fd(s)
@@ -1761,10 +1823,10 @@ SSL_use_certificate(s,x)
      X509 *             x
 
 int
-SSL_use_certificate_ASN1(s,len,d)
+SSL_use_certificate_ASN1(s,d,len)
      SSL *              s
-     long               len
      unsigned char *    d
+     long               len
 
 int
 SSL_use_certificate_file(s,file,type)
@@ -1831,6 +1893,10 @@ int
 SSL_pending(s)
      SSL *              s
 
+int
+SSL_CTX_set_cipher_list(s,str)
+     SSL_CTX *              s
+     char *             str
 
 char *
 SSL_get_cipher_list(s,n)
@@ -1840,7 +1906,7 @@ SSL_get_cipher_list(s,n)
 int
 SSL_set_cipher_list(s,str)
      SSL *              s
-     char *             str
+     char *       str
 
 char *
 SSL_get_cipher(s)
@@ -1917,204 +1983,124 @@ d2i_SSL_SESSION(a,pp,length)
 
 #define REM30 "SSLeay-0.9.0 defines these as macros. I expand them here for safety's sake"
 
-int
-SSL_add_session(ctx,ses)
-     SSL_CTX *          ctx
-     SSL_SESSION *      ses
-     CODE:
-     RETVAL = SSL_CTX_add_session(ctx,ses);
-     OUTPUT:
-     RETVAL
-
-int
-SSL_remove_session(ctx,ses)
-     SSL_CTX *          ctx
-     SSL_SESSION *      ses
-     CODE:
-     RETVAL = SSL_CTX_remove_session(ctx,ses);
-     OUTPUT:
-     RETVAL
-
-void
-SSL_flush_sessions(ctx,tm)
-     SSL_CTX *          ctx
-     long               tm
-     CODE:
-     SSL_CTX_flush_sessions(ctx,tm);
-
 SSL_SESSION *
 SSL_get_session(s)
      SSL *              s
-     CODE:
-     RETVAL = (s == NULL) ? NULL : s -> session;
-     OUTPUT:
-     RETVAL
 
-struct cert_st *
+X509 *
 SSL_get_certificate(s)
      SSL *              s
-     CODE:
-     RETVAL = (s == NULL) ? NULL : s -> session -> cert;
-     OUTPUT:
-     RETVAL
 
 SSL_CTX *
 SSL_get_SSL_CTX(s)
      SSL *              s
-     CODE:
-     RETVAL = (s == NULL) ? NULL : s -> ctx;
-     OUTPUT:
-     RETVAL
+
+long
+SSL_ctrl(ssl,cmd,larg,parg)
+	 SSL * ssl
+	 int cmd
+	 long larg
+	 char * parg
+
+long
+SSL_CTX_ctrl(ctx,cmd,larg,parg)
+    SSL_CTX * ctx
+    int cmd
+    long larg
+    char * parg
+
+long
+SSL_get_options(ssl)
+     SSL *          ssl
 
 void
 SSL_set_options(ssl,op)
      SSL *          ssl
      unsigned long  op
-     CODE:
-     SSL_set_options(ssl,op);
+
+long
+SSL_CTX_get_options(ctx)
+     SSL_CTX *      ctx
 
 void
 SSL_CTX_set_options(ctx,op)
      SSL_CTX *      ctx
      unsigned long  op
-     CODE:
-     SSL_CTX_set_options(ctx,op);
 
 LHASH *
 SSL_CTX_sessions(ctx)
      SSL_CTX *          ctx
      CODE:
-     RETVAL = (ctx == NULL) ? NULL : ctx -> sessions;
+    /* NOTE: This should be deprecated. Corresponding macro was removed from ssl.h as of 0.9.2 */
+     if (ctx == NULL) croak("NULL SSL context passed as argument.");
+     RETVAL = ctx -> sessions;
      OUTPUT:
      RETVAL
 
 unsigned long
 SSL_CTX_sess_number(ctx)
      SSL_CTX *          ctx
-     CODE:
-     RETVAL = (ctx == NULL || ctx -> sessions == NULL)
-              ? 0 : ctx -> sessions -> num_items;
-     OUTPUT:
-     RETVAL
 
 int
 SSL_CTX_sess_connect(ctx)
      SSL_CTX *          ctx
-     CODE:
-     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_connect;
-     OUTPUT:
-     RETVAL
-
-int
-SSL_CTX_sess_connect_renegotiate(ctx)
-     SSL_CTX *          ctx
-     CODE:
-     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_connect_renegotiate;
-     OUTPUT:
-     RETVAL
 
 int
 SSL_CTX_sess_connect_good(ctx)
      SSL_CTX *          ctx
-     CODE:
-     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_connect_good;
-     OUTPUT:
-     RETVAL
+
+int
+SSL_CTX_sess_connect_renegotiate(ctx)
+     SSL_CTX *          ctx
 
 int
 SSL_CTX_sess_accept(ctx)
      SSL_CTX *          ctx
-     CODE:
-     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_accept;
-     OUTPUT:
-     RETVAL
 
 int
 SSL_CTX_sess_accept_renegotiate(ctx)
      SSL_CTX *          ctx
-     CODE:
-     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_accept_renegotiate;
-     OUTPUT:
-     RETVAL
 
 int
 SSL_CTX_sess_accept_good(ctx)
      SSL_CTX *          ctx
-     CODE:
-     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_accept_good;
-     OUTPUT:
-     RETVAL
 
 int
 SSL_CTX_sess_hits(ctx)
      SSL_CTX *          ctx
-     CODE:
-     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_hit;
-     OUTPUT:
-     RETVAL
 
 int
 SSL_CTX_sess_cb_hits(ctx)
      SSL_CTX *          ctx
-     CODE:
-     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_cb_hit;
-     OUTPUT:
-     RETVAL
 
 int
 SSL_CTX_sess_misses(ctx)
      SSL_CTX *          ctx
-     CODE:
-     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_miss;
-     OUTPUT:
-     RETVAL
 
 int
 SSL_CTX_sess_timeouts(ctx)
      SSL_CTX *          ctx
-     CODE:
-     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_timeout;
-     OUTPUT:
-     RETVAL
 
 int
 SSL_CTX_sess_cache_full(ctx)
      SSL_CTX *          ctx
-     CODE:
-     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_cache_full;
-     OUTPUT:
-     RETVAL
 
 int
 SSL_CTX_sess_get_cache_size(ctx)
      SSL_CTX *          ctx
-     CODE:
-     RETVAL = (ctx == NULL) ? 0 : ctx -> session_cache_size;
-     OUTPUT:
-     RETVAL
 
 void
 SSL_CTX_sess_set_cache_size(ctx,size)
      SSL_CTX *          ctx
      int                size      
-     CODE:
-     if (ctx != NULL) ctx -> session_cache_size = size;
 
 int
 SSL_want(s)
      SSL *              s
-     CODE:
-     RETVAL = (s == NULL) ? 0 : s -> rwstate;
-     OUTPUT:
-     RETVAL
 
 int
 SSL_state(s)
      SSL *              s
-     CODE:
-     RETVAL = (s == NULL) ? 0 : s -> state;
-     OUTPUT:
-     RETVAL
 
 BIO_METHOD *
 BIO_f_ssl()
@@ -2197,5 +2183,80 @@ X509_NAME_oneline(name)
      ST(0) = sv_newmortal();   /* Undefined to start with */
      if (X509_NAME_oneline(name, buf, sizeof(buf)))
          sv_setpvn( ST(0), buf, strlen(buf));
+
+X509 *
+X509_STORE_CTX_get_current_cert(ctx)
+     X509_STORE_CTX * 	ctx
+
+int
+X509_STORE_CTX_get_error(ctx)
+     X509_STORE_CTX * 	ctx
+
+int
+X509_STORE_CTX_get_error_depth(ctx)
+     X509_STORE_CTX * 	ctx
+
+ASN1_UTCTIME *
+X509_get_notBefore(cert)
+     X509 *	cert
+
+ASN1_UTCTIME *
+X509_get_notAfter(cert)
+     X509 *	cert
+
+void 
+P_ASN1_UTCTIME_put2string(tm)
+     ASN1_UTCTIME *	tm
+     PREINIT:
+     BIO *bp;
+     int i;
+     char buffer[256];
+     CODE:
+     bp = BIO_new(BIO_s_mem());
+     ASN1_UTCTIME_print(bp,tm);
+     i = BIO_read(bp,buffer,255);
+     buffer[i] = '\0';
+     ST(0) = sv_newmortal();   /* Undefined to start with */
+     if ( i > 0 )
+         sv_setpvn( ST(0), buffer, i );
+     BIO_free(bp);
+
+int
+EVP_PKEY_copy_parameters(to,from)
+     EVP_PKEY *		to
+     EVP_PKEY * 	from
+
+void 
+PEM_get_string_X509(x509)
+     X509 *	x509
+     PREINIT:
+     BIO *bp;
+     int i;
+     char buffer[8196];
+     CODE:
+     bp = BIO_new(BIO_s_mem());
+     PEM_write_bio_X509(bp,x509);
+     i = BIO_read(bp,buffer,8195);
+     buffer[i] = '\0';
+     ST(0) = sv_newmortal();   /* Undefined to start with */
+     if ( i > 0 )
+         sv_setpvn( ST(0), buffer, i );
+     BIO_free(bp);
+
+void 
+MD5(data)
+     PREINIT:
+     STRLEN len;
+     unsigned char md[MD5_DIGEST_LENGTH];
+     unsigned char * ret;
+     INPUT:
+     unsigned char *  data = (unsigned char *) SvPV( ST(0), len);
+     CODE:
+     ret = MD5(data,len,md);
+     if (ret!=NULL) {
+	  XSRETURN_PV((char *) md);
+     } else {
+	  XSRETURN_UNDEF;
+     }
 
 #define REM_EOF "/* EOF - SSLeay.xs */"

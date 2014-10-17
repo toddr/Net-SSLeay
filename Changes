@@ -38,3 +38,34 @@ Revision history for Perl extension Net::SSLeay.
 	  hopefully make it easier to compile with some vendor compilers
 	- Added version detection code for OpenSSL-0.9.1c and checked
 	  build
+1.04  31.1.1999, Sampo Kellomaki <sampo@iki.fi>
+	- Backward incompatible changes in OpenSSL API mean that 1.04 will
+	  drop support for SSLeay and all OpenSSL versions prior
+	  to 0.9.2b release. Thanks guys!
+	- Detected errors in OpenSSL-0.9.2b/ssl/ssl.h - see patch in README
+	- Reordered arguments of several functions to track OpenSSL-0.9.2b
+	  changes. This also changes the order of args in corresponding
+	  perl functions. You have been warned!
+		- SSL_use_certificate_ASN1(s,d,len)  // swapped d and len
+	- WARNING: Possibly fatal verify_callback parameter list issue
+	  is still standing
+	- cleaned up many macros that used to access ctx->session directly,
+	  OpenSSL-0.9.2b defines thes macros properly so I use them now.
+	- Added SSL_ctrl() and SSL_CTX_ctrl()
+	- Added SSL_get_options(), SSL_CTX_get_options(),
+	  SSL_CTX_set_cipher_list()
+	- Removed SSL_add_session(), SSL_remove_session(),
+          and SSL_flush_sessions() per #if 0 in ssl.h, line 667
+	- Updated paths in various utility programs
+	- Upgraded version number detection logic in Makefile.PL
+	- Added -rsaref flag to Makefile.PL. This allows linking against rsaref
+	30.7.1999, final squeeze to get this out --Sampo
+	- upgrade to OpenSSL-0.9.3a
+	- upper case all header names so keys of the hash returned
+	  from get_https are predictible
+	- fixed get_https and post_https so they don't do shutdown
+	  anymore. This used to cause headaches when connection
+	  renegotiation happened.
+	- applied ssl_read_CRLF patch by Clinton Wong <clintdw@netcom.com>
+	- ActivePerl diffs from anton@genua.de applied,
+	  but not tested.

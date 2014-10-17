@@ -1,12 +1,14 @@
 #!/usr/bin/perl
 # 19.6.1998, Sampo Kellomaki <sampo@iki.fi>
+# 31.3.1999, Upgraded to OpenSSL-0.9.2b, --Sampo
+#
 # Make a self signed cert
 
 $dir = shift;
-$ssleay_path = shift || '/usr/local/ssl';
-$ssleay_path .= '/bin';
+$openssl_path = shift || '/usr/local/ssl';
+$openssl_path .= '/bin';
 
-open (REQ, "|$ssleay_path/req -config $dir/req.conf "
+open (REQ, "|$openssl_path/req -config $dir/req.conf "
       . "-x509 -days 36500 -new -keyout $dir/key.pem >$dir/cert.pem")
     or die "cant open req. check your path ($!)";
 print REQ <<DISTINGUISHED_NAME;
@@ -20,11 +22,11 @@ sampo\@iki.fi
 DISTINGUISHED_NAME
     ;
 close REQ;
-system "$ssleay_path/verify $dir/cert.pem";  # Just to check
+system "$openssl_path/verify $dir/cert.pem";  # Just to check
 
 ### Prepare examples directory as certificate directory
 
-$hash = `$ssleay_path/x509 -inform pem -hash -noout <$dir/cert.pem`;
+$hash = `$openssl_path/x509 -inform pem -hash -noout <$dir/cert.pem`;
 chomp $hash;
 unlink "$dir/$hash.0";
 symlink "$dir/cert.pem", "$dir/$hash.0"

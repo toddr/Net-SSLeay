@@ -16,7 +16,7 @@ $our_ip = "\x7F\0\0\x01";
 $trace = 2;
 use Socket;
 use Net::SSLeay qw(sslcat die_now die_if_ssl_error);
-#$Net::SSLeay::trace = 3; # Super verbose debugging
+$Net::SSLeay::trace = 3; # Super verbose debugging
 
 #
 # Create the socket and open a connection
@@ -39,6 +39,7 @@ Net::SSLeay::randomize();
 print "sslecho: Creating SSL context...\n" if $trace>1;
 $ctx = Net::SSLeay::CTX_new () or die_now("CTX_new ($ctx): $!\n");
 print "sslecho: Setting cert and RSA key...\n" if $trace>1;
+Net::SSLeay::CTX_set_cipher_list($ctx,'ALL');
 Net::SSLeay::set_server_cert_and_key($ctx, $cert_pem, $key_pem) or die "key";
 
 while (1) {

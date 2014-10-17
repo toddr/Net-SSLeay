@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl
+#!/usr/bin/perl
 # sslcat.pl - Send a message and receive a reply from server.
 #
 # Copyright (c) 1996 Neuronio, Lda. All Rights Reserved.

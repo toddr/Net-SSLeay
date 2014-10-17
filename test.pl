@@ -4,12 +4,14 @@
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl test.pl'
 
+use Config;
+
 ######################### We start with some black magic to print on failure.
 
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN {print "1..12\n";}
+BEGIN {print "1..15\n";}
 END {print "not ok 1\n" unless $loaded;}
 use Net::SSLeay qw(die_now die_if_ssl_error);
 $loaded = 1;
@@ -39,7 +41,7 @@ unless (-r $cert_pem && -r $key_pem) {
     print "### Making self signed certificate just for these tests...\n"
 	if $trace;
     
-    open F, "ssleay_path" or die "Can't read `ssleay_path': $!\n";
+    open F, "openssl_path" or die "Can't read `openssl_path': $!\n";
     $ssleay_path = <F>;
     close F;
     chomp $ssleay_path;
@@ -49,7 +51,9 @@ unless (-r $cert_pem && -r $key_pem) {
 }
 
 $inc = join ' ', map("-I$_", @INC);
-$perl = "perl $inc";
+#$perl = "perl $inc";
+$perl = "$Config{perlpath} $inc";
+print "Using perl at `$perl'\n" if $trace>1;
 
 unless ($pid = fork) {
     print "\tSpawning a test server on port 1212, pid=$$...\n" if $trace;
@@ -91,10 +95,20 @@ $secs = (time - $secs) || 1;
 print "\t\t...took $secs secs (" . int($mb*1024/$secs). " KB/s)\n" if $trace;
 print &test(7, ($res =~ /OK\s*$/));
 
+@sites = qw(
+www.openssl.org
+www.apache-ssl.org
+www.cdw.com
+www.rsa.com
+developer.netscape.com
+banking.wellsfargo.com
+secure.worldgaming.net
+www.engelschall.com
+	    );
 if ($trace) {
-print "### Now about to contact external sites...\n";
-print "### You have 5 seconds of time to hit Ctrl-C "
-    . "if you do not like this.\n";
+print "    Now about to contact external sites...\n\twww.bacus.pt\n";
+print map "\t$_\n", @sites;
+print "    You have 5 seconds of time to hit Ctrl-C if you do not like this.\n";
 print "    So far there were no errors in tests.\n" unless $errors;
 print "*** $errors tests failed already.\n" if $errors;
 print "    Following tests _will_ fail if you do not have network\n"
@@ -108,16 +122,15 @@ print &test('8 www.bacus.pt', &Net::SSLeay::sslcat("www.bacus.pt", 443,
 sub test_site {
     my ($test_nro, $site) = @_;
     my ($p, $r) = ('','');
-    ($p, $r) = Net::SSLeay::get_https($site, 443, '/');
-    print &test("$test_nro $site", scalar($r =~ /^HTTP\/1/s));
+    ($p, $r, %h) = Net::SSLeay::get_https($site, 443, '/');
+    print join '', map("\t$_=>$h{$_}\n", sort keys %h) if $trace>1;
+    print &test("$test_nro $site ($h{SERVER})", scalar($r =~ /^HTTP\/1/s));
 }
 
-&test_site(9,  "www.openssl.org");         # Apache + SSLeay
-&test_site(10, "www.cdw.com");             # Some IIS
-&test_site(11, "transact.netscape.com");   # Modern NS server
-
-$Net::SSLeay::slowly = 1;                  # This server is a bit broken
-&test_site(12, "banking.wellsfargo.com");  # NS 1.12 commerce server
+$i = 9;
+for $s (@sites) {
+    &test_site($i++, $s );
+}
 
 die "*** WARNING: There were $errors errors in the tests.\n" if $errors;
 print "All tests completed OK.\n" if $trace;
