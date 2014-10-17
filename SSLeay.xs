@@ -29,7 +29,7 @@
  *            args incorrect
  *            --mikem@open.com_.au
  *
- * $Id: SSLeay.xs,v 1.8 2002/06/05 18:25:46 sampo Exp $
+ * $Id: SSLeay.xs,v 1.9 2002/07/17 15:54:07 sampo Exp $
  * 
  * The distribution and use of this module are subject to the conditions
  * listed in LICENSE file at the root of OpenSSL-0.9.6b
@@ -3193,6 +3193,10 @@ RSA_generate_key(bits,e,callback=NULL,cb_arg=NULL)
 void
 RSA_free(r)
     RSA * r
+
+void
+X509_free(a)
+    X509 * a
 
 DH *
 PEM_read_bio_DHparams(bio,x=NULL,cb=NULL,u=NULL)

@@ -144,3 +144,5 @@ Revision history for Perl extension Net::SSLeay.
 	- further fixes for Net::SSLeay::Handle from jbowlin@@_linklint.org
 	- improved README.Win32 and added RECIPE.Win32 from
 	  Hermann Kelley <hkelley@@secmon._com>
+1.18  15.6.2002
+	- applied minor patch by Mark Veltzer <mark@@veltzer._org> to Makefile.PL

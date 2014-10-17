@@ -7,7 +7,7 @@
 #	     <eselber@briefcase.com> that made Windows builds painful --Sampo
 # 20.8.2001, tweaked path editing, thanks to Gordon Lack
 #            <gml4410@@ggr.co.uk> --Sampo
-# $Id: Makefile.PL,v 1.8 2002/06/09 18:42:41 sampo Exp $
+# $Id: Makefile.PL,v 1.9 2002/06/15 10:58:24 sampo Exp $
 #
 # Configuration script for Net::SSLeay.pm
 
@@ -158,7 +158,7 @@ use ExtUtils::MakeMaker;
 my %configParams = (
     NAME	=> 'Net::SSLeay',
     VERSION_FROM => 'SSLeay.pm', # finds $VERSION
-    DIR         => 'Net-SSLeay-Handle-0.50',
+    DIR         => [ 'Net-SSLeay-Handle-0.50' ],
     DEFINE	=> '',     # e.g., '-DHAVE_SOMETHING' 
     DISTNAME    => 'Net_SSLeay.pm',
     dist        => { COMPRESS => 'gzip', SUFFIX => 'gz', },

@@ -25,7 +25,7 @@
 # 17.5.2002, Added BIO_s_mem, BIO_new, BIO_free, BIO_write, BIO_read 
 #            BIO_eof, BIO_pending, BIO_wpending, RSA_generate_key, RSA_free
 #            --mikem@open._com.au
-# $Id: SSLeay.pm,v 1.15 2002/06/09 18:47:32 sampo Exp $
+# $Id: SSLeay.pm,v 1.16 2002/07/17 15:55:05 sampo Exp $
 #
 # The distribution and use of this module are subject to the conditions
 # listed in LICENSE file at the root of OpenSSL-0.9.6c
@@ -81,7 +81,7 @@ $Net::SSLeay::slowly = 0;  # don't change here, use
 $Net::SSLeay::random_device = '/dev/urandom';
 $Net::SSLeay::how_random = 512;
 
-$VERSION = '1.17';
+$VERSION = '1.18';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -388,6 +388,7 @@ $VERSION = '1.17';
         dump_peer_certificate
 	RSA_generate_key
 	RSA_free
+	X509_free
 );
 
 sub AUTOLOAD {
