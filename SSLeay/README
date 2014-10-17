@@ -1,0 +1,86 @@
+README - Net::SSLeay Perl module for using Eric Young's implementation of SSL
+
+19.7.1996, Sampo Kellomaki <sampo@iki.fi>
+
+Installing
+
+0.1 Make sure you have perl 5.002 or newer installed and in source form
+0.2 Make sure you have installed SSLeay-0.6.1 (or newer?). I have
+    assumed that SSLeay is installed in /usr/local/ssl, if this
+    is not the case, you have to edit Makefile.PL
+
+1. Extract the archieve in correct place in Perl tree (you probably
+   already extracted the archieve since you are reading this file,
+   sorry, you have to do it again)
+	
+	cd perl-source-root/ext
+	mkdir Net    # Unless you already have this directory
+        cd Net
+	gunzip <Net_SSLeay.pm.tar.gz | tar xvf -
+
+2. Make the make file, make the module, test it, install it
+
+	cd SSLeay
+	perl Makefile.PL
+	make
+	make test
+
+	# You can play with your new toy already here, but see perlxtut(1)
+        # if your perl does not find the new module.
+
+	make install    # This usually needs to be done as root
+
+	# Now the module is visible to normal perl scripts
+
+3. You're done, but if you like, you can build a HTML page:
+
+	perl-source-root/pod/pod2html SSLeay.pm
+
+
+Problems
+
+My development environment is Sparc 10 with SunOS 4.1.3, gcc 2.7.2,
+and perl5.003. Unfortunately I do not have access to other systems
+so you are somewhat on your own. Everything compiles without a warning
+on my system.
+
+You should use SSLeay-0.6.1, the previous version of SSLeay.pm included
+ssl_locl.h, which is not needed with SSLeay-0.6.1 any more.
+
+I have received a report about perl5.003 having problems in finding
+the Net/SSLeay.pm during tests 4 and 5 of `make test'. I have not been
+able to reproduce this bug, but I suggest following work around: Add
+to files examples/sslecho.pl, examples/sslcat.pl, and
+examples/minicli.pl the following two lines and experiment with
+different paths:
+
+	push @INC, '/your/path/to/perl5.003/ext';
+	print join(":", @INC);  # This is only for debugging
+
+Recommended reading
+
+If you run into build problems, especially regarding shared libraries,
+check your perl documentation, especially the perlxtut(1) man page,
+which gives excellent tutorial of the build process of XSUBs.
+
+perlxtut(1)
+perlxs(1)
+perlguts(1)
+perlcall(1)
+
+
+Todo
+
+The package needs to be divided in more modules:
+	Net::SSLeay::X509
+	Net::SSLeay::Session
+	Net::SSLeay::CTX
+	Net::SSLeay::ERR
+	etc.
+
+Callback glue for the rest of the callbacks (only the verify callback has
+been implemented yet).
+
+Add perlish more behaviour where it makes sense.
+
+--Sampo

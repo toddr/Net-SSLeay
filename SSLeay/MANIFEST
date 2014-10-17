@@ -1,0 +1,15 @@
+Changes
+README
+MANIFEST
+Makefile.PL
+SSLeay.pm
+SSLeay.xs
+test.pl
+typemap
+examples/minicli.pl
+examples/sslecho.pl
+examples/sslcat.pl
+examples/ssl-inetd-serv.pl
+examples/plain-cert.pem
+examples/plain-req.pem
+examples/plain-rsa.pem

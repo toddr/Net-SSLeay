@@ -1,0 +1,9 @@
+Revision history for Perl extension SSLeay.
+
+0.01  Thu Jun 27 03:56:00 1996
+	- original version; created by h2xs 1.16
+0.02  Trial with SSL.pm name
+0.03  Renamed everything Net::SSLeay
+0.04  19.7.1996 Fixed some 0.6.1 incompatibilities, namely removed
+      #include <ssl_locl.h>, fixed typo in SSL_get_cerificate, fixed
+      the return type of the same.
