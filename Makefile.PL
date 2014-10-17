@@ -6,7 +6,7 @@
 # 18.7.2001, fixed numerous issues reported by Eric A Selber
 #	     <eselber@briefcase.com> that made Windows builds painful --Sampo
 # 20.8.2001, tweaked path editing, thanks Gordon Lack <gml4410@ggr.co.uk> --Sampo
-# $Id: Makefile.PL,v 1.6 2002/03/25 23:46:15 sampo Exp $
+# $Id: Makefile.PL,v 1.7 2002/06/05 18:25:45 sampo Exp $
 #
 # Configuration script for Net::SSLeay.pm
 
@@ -47,7 +47,7 @@ $openssl_path = shift if @ARGV && $ARGV[0] ne '--';
 
 shift if $ARGV[0] eq '--';   # Rest of args are for MakeMaker
 
-$openssl_vers = '0.9.6c';
+$openssl_vers = '0.9.6d';
 
 print "Checking for OpenSSL-$openssl_vers or newer...\n";
 
@@ -91,8 +91,8 @@ warn "That's is newer than what this module was tested with ($openssl_vers). You
     . "available. Everything will probably work OK, though.\n"
     if $maj > 0.9 || $min > 6;
 
-warn "openssl-0.9.6a and some earlier versions have weaknesses and also 0.9.6b has some (nonfatal) bugs (read CHANGES file in the openssl-0.9.6c distribution, www.openssl.org), upgrading to openssl-0.9.6c is recommended.\n"
-    if $maj eq '0.9' && $min == 6 && $letter lt 'c';
+warn "openssl-0.9.6a and some earlier versions have weaknesses and also 0.9.6b has some (nonfatal) bugs (read CHANGES file in the openssl-0.9.6d distribution, www.openssl.org), upgrading to openssl-0.9.6d is recommended.\n"
+    if $maj eq '0.9' && $min == 6 && $letter lt 'd';
 
 open F, ">openssl_path" or die "Can't write ./openssl_path: $!";
 print F $openssl_bin_path;  # used by test.pl and examples/makecert.pl
@@ -154,7 +154,7 @@ if ($windows) {
 use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
-WriteMakefile(
+my %configParams = (
     NAME	=> 'Net::SSLeay',
     VERSION_FROM => 'SSLeay.pm', # finds $VERSION
     DIR         => 'Net-SSLeay-Handle-0.50',
@@ -170,6 +170,16 @@ WriteMakefile(
 #    OPTIMIZE   => '-g',
 	      %more_params,
 );
+
+use Config;
+if( ($Config{'cc'} eq 'gcc') && ($Config{'cccdlflags'} =~ /-fpic/) ) {
+    warn "Compiler is gcc and -fpic supplied. Tweaking it to -fPIC";
+    my $cccdlflags = $Config{'cccdlflags'};
+    $cccdlflags =~ s/-fpic/-fPIC/;
+    $configParams{'CCCDLFLAGS'} = $cccdlflags;
+};
+
+WriteMakefile(%configParams);
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.

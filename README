@@ -1,9 +1,10 @@
 README - Net::SSLeay Perl module for using OpenSSL
 
-25.3.2002, Sampo Kellomaki <sampo@symlabs.com>
-Version: 1.14
-$Id: README,v 1.5 2002/03/25 23:42:46 sampo Exp $
+5.6.2002, Sampo Kellomaki <sampo@symlabs.com>
+Version: 1.16
+$Id: README,v 1.6 2002/06/05 18:25:45 sampo Exp $
 
+1.16: tested against openssl-0.9.6d, added more callback stuff
 1.14: added perr certificate return, HPUX aCC flags fix
 1.09: added many utlility functions of OpenSSL API, better old perl support
 1.08: 64 bit fixes, windows fixes, fixed extra newline with auth bug
@@ -15,17 +16,16 @@ $Id: README,v 1.5 2002/03/25 23:42:46 sampo Exp $
 By popular demand...
 --------------------
 
-   perl -e 'use Net::SSLeay; \
-          ($p)=Net::SSLeay::get_https("www.openssl.org", 443, "/"); print $p'
+   perl -MNet::SSLeay -e '($p)=Net::SSLeay::get_https("www.openssl.org", 443, "/"); print $p'
 
 Prerequisites
 -------------
 
 perl-5.6.1
                 though anything starting from perl5.002 probably works.
-OpenSSL-0.9.6c
+OpenSSL-0.9.6d
                 (try http://www.openssl.org/) - 
-                This release has been tested with 0.9.6c and
+                This release has been tested with 0.9.6d and
 		in historical light it seems likely that future versions
 	  	will work as well (if major version number changes all bets
 		are off, though)
@@ -251,7 +251,7 @@ is, just say `perldoc Net::SSLeay' or `more SSLeay.pm')?
 Are you sure you didn't confuse `Net::SSLeay' with `SSLeay' that
 comes with OpenSSL?
 
-My development environments are
+My development environments used to be
 
   i686,   Linux-2.4.3,  gcc-2.92.2,   glibc-2.2,   perl-5.6.0,   openssl-0.9.6a
   i686,   Linux-2.4.3,  gcc-2.92.2,   glibc-2.2,   perl5.005_02, openssl-0.9.6a

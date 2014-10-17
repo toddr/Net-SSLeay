@@ -1,6 +1,6 @@
 # Original by Jim Bowlin <jbowlin@linklint.org>
 # Maintenance fixes by Sampo Kellomaki <sampo@iki.fi>
-# $Id: test.pl,v 1.4 2001/12/17 21:25:44 sampo Exp $
+# $Id: test.pl,v 1.5 2002/06/05 18:25:46 sampo Exp $
 #
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl test.pl'
@@ -17,13 +17,13 @@ print "ok 1\n";
 
 #    app.iplanet.com
 my @sites = qw {
-    www.openssl.org
     www.cdw.com
     banking.wellsfargo.com
     secure.worldgaming.net
-    www.engelschall.com
     www.ubs.com       
 };
+#    www.openssl.org
+#    www.engelschall.com
 
 test_2();
 test_3();

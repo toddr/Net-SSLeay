@@ -1,4 +1,4 @@
-# $Id: Handle.pm,v 1.4 2001/12/17 21:12:44 sampo Exp $
+# $Id: Handle.pm,v 1.7 2002/06/05 18:25:46 sampo Exp $
 
 package Net::SSLeay::Handle;
 
@@ -37,7 +37,9 @@ sub TIEHANDLE {
     my ($class, $socket, $port) = @_;
     $Debug > 10 and print "TIEHANDLE(@{[join ', ', @_]})\n";
 
-    ref $socket eq "GLOB" or $socket = $class->make_socket($socket, $port);
+  UNIVERSAL::isa($socket, 'GLOB')
+      or $socket = $class->make_socket($socket, $port);
+    #ref $socket eq "GLOB" or $socket = $class->make_socket($socket, $port);
 
     $class->_initialize();
 
@@ -133,7 +135,7 @@ sub make_socket {
 #    $port = getservbyname($port, 'tcp') unless $port =~ /^\d+$/;
 	my $dest_ip = gethostbyname($Net::SSLeay::proxyhost);
 	my $host_params = sockaddr_in($Net::SSLeay::proxyport, $dest_ip);
-	my $socket;                                                        # = \*S;
+	my $socket = \*S;
 	socket($socket, &PF_INET(), &SOCK_STREAM(), 0)    or die "socket: $!";
 	connect($socket, $host_params)              or die "connect: $!";
 	my $old_select = select($socket); $| = 1; select($old_select);
@@ -147,7 +149,7 @@ sub make_socket {
 #    $port = getservbyname($port, 'tcp') unless $port =~ /^\d+$/;
 	my $dest_ip = gethostbyname($host);
 	my $host_params = sockaddr_in($port, $dest_ip);
-	my $socket;                                                        # = \*S;
+	my $socket = \*S;
 	socket($socket, &PF_INET(), &SOCK_STREAM(), 0)    or die "socket: $!";
 	connect($socket, $host_params)              or die "connect: $!";
 	my $old_select = select($socket); $| = 1; select($old_select);

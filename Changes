@@ -134,3 +134,9 @@ Revision history for Perl extension Net::SSLeay.
           from fooling the length comuptations.
 	- Dropped support for perl5.005_03 because I do not have opportunity 
           to test it. --Sampo
+1.16  17.4.2002-22.5.2002
+        - applied patch to fix CTX_set_default_passwd_cb() contributed
+          by Timo Kujala <timo.kujala@@intellitel_.com>, --Sampo
+	- applied patch to add various API functions by mikem@open.com_.au
+	- 5.005_03 compat fix for Handle.pm from Jim Mintha <jim@@ic._uva.nl>
+

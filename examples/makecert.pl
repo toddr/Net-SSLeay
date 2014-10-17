@@ -30,6 +30,9 @@ DISTINGUISHED_NAME
 close REQ;
 system "$openssl_path/openssl verify $dir/cert.pem";  # Just to check
 
+# Generate an encrypted password too
+system "$openssl_path/openssl rsa -in $dir/key.pem -des -passout pass:secret -out $dir/key.pem.e"; 
+
 ### Prepare examples directory as certificate directory
 
 $hash = `$openssl_path/openssl x509 -inform pem -hash -noout <$dir/cert.pem`;

@@ -1,6 +1,6 @@
 /* SSLeay.xs - Perl module for using Eric Young's implementation of SSL
  *
- * Copyright (c) 1996-2001 Sampo Kellomaki <sampo@iki.fi>
+ * Copyright (c) 1996-2002 Sampo Kellomaki <sampo@iki.fi>
  * All Rights Reserved.
  *
  * 19.6.1998, Maintenance release to sync with SSLeay-0.9.0, --Sampo
@@ -18,7 +18,18 @@
  *            SSL_*_methods --Sampo
  * 25.9.2001, added a big pile of methods by automatically grepping and diffing
  *            openssl headers and my module --Sampo
- * $Id: SSLeay.xs,v 1.5 2001/12/08 17:43:13 sampo Exp $
+ * 17.4.2002, applied patch to fix CTX_set_default_passwd_cb() contributed
+ *            by Timo Kujala <timo.kujala@@intellitel_.com>, --Sampo
+ * 17.5.2002, Added BIO_s_mem, BIO_new, BIO_free, BIO_write, BIO_read ,
+ *            BIO_eof, BIO_pending, BIO_wpending, X509_NAME_get_text_by_NID,
+ *            RSA_generate_key, BIO_new_file
+ *            Fixed problem with return value from verify callback being
+ *            ignored.
+ *            Fixed a problem with CTX_set_tmp_rsa and CTX_set_tmp_dh
+ *            args incorrect
+ *            --mikem@open.com_.au
+ *
+ * $Id: SSLeay.xs,v 1.8 2002/06/05 18:25:46 sampo Exp $
  * 
  * The distribution and use of this module are subject to the conditions
  * listed in LICENSE file at the root of OpenSSL-0.9.6b
@@ -64,7 +75,7 @@ extern "C" {
 #include <openssl/buffer.h>
 #include <openssl/ssl.h>
 #include <openssl/comp.h>    /* openssl-0.9.6a forgets to include this */
-
+#include <openssl/md5.h>     /* openssl-SNAP-20020227 does not automatically include this */
 /* Debugging output */
 
 #if 0
@@ -1546,8 +1557,8 @@ ssleay_verify_callback_glue (int ok, X509_STORE_CTX* ctx)
 	PUTBACK ;
 	FREETMPS ;
 	LEAVE ;
-	
-	return POPi;
+
+	return res;
 }
 
 static SV * ssleay_ctx_verify_callback = (SV*)NULL;
@@ -1587,7 +1598,56 @@ ssleay_ctx_verify_callback_glue (int ok, X509_STORE_CTX* ctx)
 	FREETMPS ;
 	LEAVE ;
 	
-	return POPi;
+	return res;
+}
+
+static SV * ssleay_ctx_set_default_passwd_cb_callback = (SV*)NULL;
+
+/* pem_password_cb function */
+
+static int
+ssleay_ctx_set_default_passwd_cb_callback_glue (char *buf, int size,
+				 		int rwflag, void *userdata)
+{
+      dSP;
+      int count;
+      char *res;
+
+      ENTER;
+      SAVETMPS;
+
+      PUSHMARK(sp);
+      XPUSHs(sv_2mortal(newSViv(rwflag)));
+      XPUSHs(sv_2mortal(newSViv((unsigned long)userdata)));
+      PUTBACK;
+
+      if (ssleay_ctx_set_default_passwd_cb_callback == NULL)
+              croak ("Net::SSLeay: ctx_passwd_callback called, but not "
+                     "set to point to any perl function.\n");
+
+      PR("About to call passwd callback.\n");
+      count = perl_call_sv(ssleay_ctx_set_default_passwd_cb_callback, G_SCALAR);
+      PR("Returned from ctx passwd callback.\n");
+
+      SPAGAIN;
+
+      if (count != 1)
+              croak ("Net::SSLeay: ctx_passwd_callback "
+                     "perl function did not return a scalar.\n");
+      res = POPp;
+      
+      if (res == NULL) {
+              *buf = '\0';
+      } else {
+              strncpy(buf, res, size);
+              buf[size - 1] = '\0';
+      }
+
+      PUTBACK;
+      FREETMPS;
+      LEAVE;
+
+      return strlen(buf);
 }
 
 MODULE = Net::SSLeay		PACKAGE = Net::SSLeay          PREFIX = SSL_
@@ -1703,7 +1763,6 @@ SSL_CTX_set_verify(ctx,mode,callback)
      } else {
          SSL_CTX_set_verify(ctx,mode,NULL);
      }
-
 
 int
 SSL_get_error(s,ret)
@@ -2182,6 +2241,9 @@ SSL_state(s)
 BIO_METHOD *
 BIO_f_ssl()
 
+BIO_METHOD *
+BIO_s_mem()
+
 unsigned long
 ERR_get_error()
 
@@ -2265,6 +2327,16 @@ X509_NAME_oneline(name)
      if (X509_NAME_oneline(name, buf, sizeof(buf)))
          sv_setpvn( ST(0), buf, strlen(buf));
 
+void
+X509_NAME_get_text_by_NID(name,nid)
+     X509_NAME *    name
+     int nid
+     PREINIT:
+     char buf[32768];
+     CODE:
+     ST(0) = sv_newmortal();   /* Undefined to start with */
+     if (X509_NAME_get_text_by_NID(name, nid, buf, sizeof(buf)))
+         sv_setpvn( ST(0), buf, strlen(buf));
 
 X509 *
 X509_STORE_CTX_get_current_cert(x509_store_ctx)
@@ -2388,6 +2460,11 @@ BIO_new_buffer_ssl_connect(ctx)
      SSL_CTX *	ctx
 
 BIO *
+BIO_new_file(filename,mode)
+     char * filename
+     char * mode
+
+BIO *
 BIO_new_ssl(ctx,client)
      SSL_CTX *	ctx
      int 	client
@@ -2395,6 +2472,53 @@ BIO_new_ssl(ctx,client)
 BIO *
 BIO_new_ssl_connect(ctx)
      SSL_CTX *	ctx
+
+BIO *
+BIO_new(type)
+     BIO_METHOD * type;
+
+int
+BIO_free(bio)
+     BIO * bio;
+
+void
+BIO_read(s,max=sizeof(buf))
+     BIO *   s
+     PREINIT:
+     char buf[32768];
+     INPUT:
+     int     max
+     PREINIT:
+     int got;
+     CODE:
+     ST(0) = sv_newmortal();   /* Undefined to start with */
+     if ((got = BIO_read(s, buf, max)) >= 0)
+         sv_setpvn( ST(0), buf, got);
+
+
+int
+BIO_write(s,buf)
+     BIO *   s
+     PREINIT:
+     STRLEN len;
+     INPUT:
+     char *  buf = SvPV( ST(1), len);
+     CODE:
+     RETVAL = BIO_write (s, buf, (int)len);
+     OUTPUT:
+     RETVAL
+
+int
+BIO_eof(s)
+     BIO *   s
+
+int
+BIO_pending(s)
+     BIO *   s
+
+int
+BIO_wpending(s)
+     BIO *   s
 
 int 
 BIO_ssl_copy_session_id(to,from)
@@ -2506,8 +2630,19 @@ SSL_CTX_set_client_CA_list(ctx,list)
 
 void 
 SSL_CTX_set_default_passwd_cb(ctx,cb)
-     SSL_CTX *	ctx
-     pem_password_cb *	cb
+    	SSL_CTX *	ctx
+	SV * cb
+	CODE:
+     if (ssleay_ctx_set_default_passwd_cb_callback == (SV*)NULL) {
+        ssleay_ctx_set_default_passwd_cb_callback = newSVsv(cb);
+     } else {
+         SvSetSV (ssleay_ctx_set_default_passwd_cb_callback, cb);
+     }
+     if (SvTRUE(ssleay_ctx_set_default_passwd_cb_callback)) {
+         SSL_CTX_set_default_passwd_cb(ctx,&ssleay_ctx_set_default_passwd_cb_callback_glue);
+     } else {
+         SSL_CTX_set_default_passwd_cb(ctx,NULL);
+     }
 
 void 
 SSL_CTX_set_default_passwd_cb_userdata(ctx,u)
@@ -2922,20 +3057,12 @@ SSL_CTX_set_session_cache_mode(ctx,m)
 long	
 SSL_CTX_set_tmp_dh(ctx,dh)
      SSL_CTX *	ctx
-     char *	dh
-  CODE:
-  RETVAL = SSL_CTX_ctrl(ctx,SSL_CTRL_SET_TMP_DH,0,(char *)dh);
-  OUTPUT:
-  RETVAL
+     DH *	dh
 
 long	
 SSL_CTX_set_tmp_rsa(ctx,rsa)
      SSL_CTX *	ctx
-     char *	rsa
-  CODE:
-  RETVAL = SSL_CTX_ctrl(ctx,SSL_CTRL_SET_TMP_RSA,0,(char *)rsa);
-  OUTPUT:
-  RETVAL
+     RSA *	rsa
 
 void *
 SSL_get_app_data(s)
@@ -3056,7 +3183,29 @@ SSL_set_tmp_rsa(ssl,rsa)
   OUTPUT:
   RETVAL
 
-long	
+RSA *
+RSA_generate_key(bits,e,callback=NULL,cb_arg=NULL)
+    int           bits
+    unsigned long e
+    void *        callback
+    void *        cb_arg
+
+void
+RSA_free(r)
+    RSA * r
+
+DH *
+PEM_read_bio_DHparams(bio,x=NULL,cb=NULL,u=NULL)
+	BIO  * bio
+	void * x
+	void * cb
+	void * u
+
+void
+DH_free(dh)
+	DH * dh
+
+long
 SSL_total_renegotiations(ssl)
      SSL *	ssl
   CODE:

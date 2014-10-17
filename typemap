@@ -4,6 +4,7 @@ SSL_CTX *	T_IV
 SSL_SESSION *	T_IV
 SSL *		T_IV
 RSA *		T_IV
+DH *		T_IV
 X509 *		T_IV
 X509_NAME *	T_IV
 BIO *           T_IV

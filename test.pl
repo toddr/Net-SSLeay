@@ -6,7 +6,8 @@
 # 20.8.2001, moved checking which perl to use higher up. Thanks
 #            Gordon Lack <gml4410@ggr.co.uk> --Sampo
 # 7.12.2001, added test cases for client certificates and proxy SSL --Sampo
-# $Id: test.pl,v 1.3 2001/12/08 17:43:13 sampo Exp $
+# 28.5.2002, added contributed test cases for callbacks --Sampo
+# $Id: test.pl,v 1.5 2002/06/05 18:25:46 sampo Exp $
 #
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl test.pl'
@@ -18,7 +19,7 @@ use Config;
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN {print "1..15\n";}
+BEGIN {print "1..20\n";}
 END {print "not ok 1\n" unless $::loaded;}
 select(STDOUT); $|=1;
 use Net::SSLeay qw(die_now die_if_ssl_error);
@@ -67,9 +68,20 @@ unless (-r $cert_pem && -r $key_pem) {
     close F;
     chomp $ssleay_path;
 
+    $ENV{RANDFILE} = '.rnd';  # not random, but good enough
     system "$perl examples/makecert.pl examples $ssleay_path $silent";
     print "    certificate done.\n\n" if $trace;
 }
+
+# Test decrypting key here
+
+$res = `$perl examples/passwd-cb.pl $key_pem.e secret`;
+print ">>>$res<<<\n" if $trace>1;
+print &test(3, $res !~ /failed/ && $res =~ /calls=1/);
+
+$res = `$perl examples/passwd-cb.pl $key_pem.e incorrect`;
+print ">>>$res<<<\n" if $trace>1;
+print &test(4, $res =~ /failed/ && $res =~ /calls=1/);
 
 unless ($pid = fork) {
     print "\tSpawning a test server on port 1212, pid=$$...\n" if $trace;
@@ -80,15 +92,23 @@ sleep 1;  # if server is slow
 
 $res = `$perl examples/sslcat.pl 127.0.0.1 1212 ssleay-test`;
 print $res if $trace>1;
-print &test(3, ($res =~ /SSLEAY-TEST/));
+print &test(5, ($res =~ /SSLEAY-TEST/));
 
 $res = `$perl examples/minicli.pl 127.0.0.1 1212 another`;
 print $res if $trace>1;
-print &test(4, ($res =~ /ANOTHER/));
+print &test(6, ($res =~ /ANOTHER/));
 
 $res = `$perl examples/callback.pl 127.0.0.1 1212 examples`;
 print $res if $trace>1;
-print &test(5, ($res =~ /OK\s*$/));
+print &test(7, ($res =~ /OK\s*$/));
+
+$res = `$perl examples/bio.pl`;
+print $res if $trace>1;
+print &test(8, ($res =~ /OK\s*$/));
+
+$res = `$perl examples/ephemeral.pl`;
+print $res if $trace>1;
+print &test(9, ($res =~ /OK\s*$/));
 
 $bytes = $mb * 1024 * 1024;
 print "\tSending $mb MB over localhost, may take a while (and some VM)...\n"
@@ -98,13 +118,13 @@ $res = `$perl examples/bulk.pl 127.0.0.1 1212 $bytes`;
 print $res if $trace>1;
 $secs = (time - $secs) || 1;
 print "\t\t...took $secs secs (" . int($mb*1024/$secs). " KB/s)\n" if $trace;
-print &test(6, ($res =~ /OK\s*$/));
+print &test(10, ($res =~ /OK\s*$/));
 
 kill $pid;  # We don't need that server any more
 
 $res = `$perl examples/cli-cert.pl $cert_pem $key_pem examples`;
 print $res if $trace>1;
-print &test(7, ($res =~ /client cert: Subject Name: \/C=XX/));
+print &test(11, ($res =~ /client cert: Subject Name: \/C=XX/));
 
 print "\tSending $mb MB over pipes, may take a while (and some VM)...\n"
     if $trace;
@@ -113,17 +133,30 @@ $res = `$perl examples/stdio_bulk.pl $cert_pem $key_pem $bytes`;
 print $res if $trace>1;
 $secs = (time - $secs) || 1;
 print "\t\t...took $secs secs (" . int($mb*1024/$secs). " KB/s)\n" if $trace;
-print &test(8, ($res =~ /OK\s*$/));
+print &test(12, ($res =~ /OK\s*$/));
+
+sub provide_password {
+    return '1234';
+}
+
+### Check that the default password callback works
+
+$ctx=Net::SSLeay::CTX_new();
+Net::SSLeay::CTX_set_default_passwd_cb($ctx,\&provide_password);
+$r=Net::SSLeay::CTX_use_PrivateKey_file($ctx,"examples/server_key.pem",
+					&Net::SSLeay::FILETYPE_PEM());
+print &test(13, $r);
 
 #app.iplanet.com
 my @sites = qw(
-www.openssl.org
 www.cdw.com
 banking.wellsfargo.com
 secure.worldgaming.net
-www.engelschall.com
 www.ubs.com
 	    );
+#www.engelschall.com
+#www.openssl.org
+
 if ($trace) {
 print "    Now about to contact external sites...\n\twww.bacus.pt\n";
 print map "\t$_\n", @sites;
@@ -135,7 +168,8 @@ print "    Following tests _will_ fail if you do not have network\n"
 sleep 5;
 }
 
-print &test('9 www.bacus.pt', &Net::SSLeay::sslcat("www.bacus.pt", 443,
+print &test('14 www.bacus.pt',
+	    &Net::SSLeay::sslcat("www.bacus.pt", 443,
 				 "get\n\r\n\r") =~ /<TITLE>/);
 
 sub test_site ($$) {
@@ -171,7 +205,7 @@ sub test_site ($$) {
     }
 }
 
-my $i = 10;
+my $i = 15;
 my $s;
 for $s (@sites) {
     &test_site($i++, $s );

@@ -22,7 +22,10 @@
 #            perl5.005_03 because I do not have opportunity to test it. --Sampo
 # 5.4.2002,  improved Unicode gotcha eliminator to support old perls --Sampo
 # 8.4.2002,  added a small line end fix from Petr Dousa (pdousa@@kerio_.com)
-# $Id: SSLeay.pm,v 1.11 2002/04/03 18:09:04 sampo Exp $
+# 17.5.2002, Added BIO_s_mem, BIO_new, BIO_free, BIO_write, BIO_read 
+#            BIO_eof, BIO_pending, BIO_wpending, RSA_generate_key, RSA_free
+#            --mikem@open._com.au
+# $Id: SSLeay.pm,v 1.14 2002/06/05 18:25:46 sampo Exp $
 #
 # The distribution and use of this module are subject to the conditions
 # listed in LICENSE file at the root of OpenSSL-0.9.6c
@@ -78,7 +81,7 @@ $Net::SSLeay::slowly = 0;  # don't change here, use
 $Net::SSLeay::random_device = '/dev/urandom';
 $Net::SSLeay::how_random = 512;
 
-$VERSION = '1.15';
+$VERSION = '1.16';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -349,6 +352,15 @@ $VERSION = '1.15';
 	remove_session
 	d2i_SSL_SESSION
 	BIO_f_ssl
+	BIO_new
+	BIO_new_file
+        BIO_s_mem
+        BIO_free
+        BIO_read
+        BIO_write
+	BIO_eof
+	BIO_pending
+	BIO_wpending
 	ERR_get_error
 	ERR_error_string
 	err
@@ -356,6 +368,7 @@ $VERSION = '1.15';
 	X509_get_issuer_name
 	X509_get_subject_name
         X509_NAME_oneline
+	X509_NAME_get_text_by_NID
 	die_if_ssl_error
 	die_now
 	print_errs
@@ -373,6 +386,8 @@ $VERSION = '1.15';
 	ssl_write_CRLF
         ssl_write_all
         dump_peer_certificate
+	RSA_generate_key
+	RSA_free
 );
 
 sub AUTOLOAD {
@@ -841,6 +856,16 @@ It is used like this:
 
 	Net::SSLeay::set_verify ($ssl, Net::SSLeay::VERIFY_PEER, \&verify);
 
+Callbacks for decrypting private keys are implemented, but have the
+same limitation as the verify_callback implementation (one password
+callback shared between all contexts.)  You might use it something
+like this:
+
+        Net::SSLeay::CTX_set_default_passwd_cb($ctx, sub { "top-secret" });
+        Net::SSLeay::CTX_use_PrivateKey_file($ctx, "key.pem",
+					     Net::SSLeay::FILETYPE_PEM)
+            or die "Error reading private key";
+
 No other callbacks are implemented. You do not need to use any
 callback for simple (i.e. normal) cases where the SSLeay built-in
 verify mechanism satisfies your needs.
@@ -862,11 +887,35 @@ as I was lazy and needed them, the following kludges are implemented:
     Net::SSLeay::RAND_load_file($file_name, $how_many_bytes);
     Net::SSLeay::RAND_write_file($file_name);
     Net::SSLeay::RAND_egd($path);
+    $text = Net::SSLeay::X509_NAME_get_text_by_NID($name, $nid);
 
 Actually you should consider using the following helper functions:
 
     print Net::SSLeay::dump_peer_certificate($ssl);
     Net::SSLeay::randomize();
+
+=head2 RSA interface
+
+Some RSA functions are available:
+
+$rsakey = Net::SSLeay::RSA_generate_key();
+Net::SSLeay::CTX_set_tmp_rsa($ctx, $rsakey);
+Net::SSLeay::RSA_free($rsakey);
+
+=head2 BIO interface
+
+Some BIO functions are available:
+
+  Net::SSLeay::BIO_s_mem();
+  $bio = Net::SSLeay::BIO_new(BIO_s_mem())
+  $bio = Net::SSLeay::BIO_new_file($filename, $mode);
+  Net::SSLeay::BIO_free($bio)
+  $count = Net::SSLeay::BIO_write($data);
+  $data = Net::SSLeay::BIO_read($bio);
+  $data = Net::SSLeay::BIO_read($bio, $maxbytes);
+  $is_eof = Net::SSLeay::BIO_eof($bio);
+  $count = Net::SSLeay::BIO_pending($bio);
+  $count = Net::SSLeay::BIO_wpending ($bio);
 
 =head1 EXAMPLES
 

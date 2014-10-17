@@ -11,6 +11,7 @@ typemap
 test.pl
 ptrcasttst.c
 ptrtstrun.pl
+.rnd
 examples/minicli.pl
 examples/sslecho.pl
 examples/sslcat.pl
@@ -26,6 +27,11 @@ examples/req.conf
 examples/makecert.pl
 examples/ssl_diff.pl
 examples/cli-cert.pl
+examples/server_key.pem
+examples/cb-testi.pl
+examples/bio.pl
+examples/ephemeral.pl
+examples/passwd-cb.pl
 Net-SSLeay-Handle-0.50/Changes
 Net-SSLeay-Handle-0.50/Handle.pm
 Net-SSLeay-Handle-0.50/MANIFEST
