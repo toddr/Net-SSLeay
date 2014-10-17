@@ -10,9 +10,7 @@ $port = 443         unless $port = shift;
 $msg = "get \n\r\n" unless $msg = shift;
 
 print "$host $port $msg\n";
-
-use Net::SSLeay;
-
-print &Net::SSLeay::cat($host, $port, $msg);
+use Net::SSLeay qw(sslcat);
+print sslcat($host, $port, $msg);
  
 __END__

@@ -1,22 +1,43 @@
 README - Net::SSLeay Perl module for using Eric Young's implementation of SSL
 
-19.7.1996, Sampo Kellomaki <sampo@iki.fi>
+19.6.1998, Sampo Kellomaki <sampo@iki.fi>
+
+Note: This module is _the_ `Net::SSLeay' namespace. Eric Young is
+working on another module, which comes in the perl sub directory of
+SSLeay-0.9.0, called `SSLeay'. These two modules are not related and
+perl scripts written for one will not work with the other (though,
+both modules can be simultaneously installed and your scripts are free
+to mix and match :-)
+
+By popular demand...
+--------------------
+
+   perl -e 'use Net::SSLeay; \
+          ($p)=Net::SSLeay::get_https("www.cryptsoft.com", 443, "/"); print $p'
+
+Prerequisites
+-------------
+
+perl5.004     - though anything starting from perl5.002 probably works. You
+                need your perl in source code form.
+SSLeay-0.9.0  - nothing earlier works and I do not guarantee that anything
+                later works either (but chances are good, if SSLeay API
+                stabilizes at this version). If the newest version does
+                not work, downgrade to 0.9.0 before asking questions.
+                I have assumed that SSLeay is installed in /usr/local/ssl,
+                if this is not the case, you have to edit Makefile.PL
 
 Installing
+----------
 
-0.1 Make sure you have perl 5.002 or newer installed and in source form
-0.2 Make sure you have installed SSLeay-0.6.1 (or newer?). I have
-    assumed that SSLeay is installed in /usr/local/ssl, if this
-    is not the case, you have to edit Makefile.PL
-
-1. Extract the archieve in correct place in Perl tree (you probably
+1. Extract the archive in correct place in Perl tree (you probably
    already extracted the archieve since you are reading this file,
    sorry, you have to do it again)
 	
-	cd perl-source-root/ext
+	cd perl5.004/ext
 	mkdir Net    # Unless you already have this directory
         cd Net
-	gunzip <Net_SSLeay.pm.tar.gz | tar xvf -
+	gunzip <Net_SSLeay.pm-1.00.tar.gz | tar xvf -
 
 2. Make the make file, make the module, test it, install it
 
@@ -38,26 +59,46 @@ Installing
 
 
 Problems
+--------
 
-My development environment is Sparc 10 with SunOS 4.1.3, gcc 2.7.2,
-and perl5.003. Unfortunately I do not have access to other systems
-so you are somewhat on your own. Everything compiles without a warning
-on my system.
+Are you sure you didn't confuse `Net::SSLeay' with `SSLeay'?
 
-You should use SSLeay-0.6.1, the previous version of SSLeay.pm included
-ssl_locl.h, which is not needed with SSLeay-0.6.1 any more.
+My development environments are
+  
+  i586, Linux-2.0.33, gcc-2.7.2.2, perl5.004_01
+  Sparc Station 10, SunOS 4.1.3, gcc 2.7.2, perl5.003
 
-I have received a report about perl5.003 having problems in finding
-the Net/SSLeay.pm during tests 4 and 5 of `make test'. I have not been
-able to reproduce this bug, but I suggest following work around: Add
-to files examples/sslecho.pl, examples/sslcat.pl, and
-examples/minicli.pl the following two lines and experiment with
-different paths:
+Unfortunately I do not have access to other systems so you are
+somewhat on your own. Everything compiles without a warning on my
+systems.
 
-	push @INC, '/your/path/to/perl5.003/ext';
-	print join(":", @INC);  # This is only for debugging
+Check that perl is finding your SSLeay.
+
+If `make test' bombs, add following line to the test script that fails:
+
+	$Net::SSLeay::trace = 2;
+
+and see what happens. You may also have to edit test.pl to make sure
+the debugging output gets printed.
+
+If `make test' prints lots of `connect: Connection refused...' errors,
+then sslecho.pl test server has died. It is supposed to be launched in
+the beginning of test.pl, but can fail if, e.g. port 1212 is taken or
+in TIMEWAIT state. Look also in ssleacho.log file for diagnostics.
+
+If you get core dump, build your perl for debugging (add -g to
+ccflags, see INSTALL in perl distribution), build your SSLeay for
+debugging as well, uncomment the "OPTIMIZE => '-g'" line in
+Makefile.PL and then say
+
+	make clean
+	perl Makefile.PL
+	make static
+	make test_static
+	gdb perl core
 
 Recommended reading
+-------------------
 
 If you run into build problems, especially regarding shared libraries,
 check your perl documentation, especially the perlxtut(1) man page,
@@ -67,20 +108,5 @@ perlxtut(1)
 perlxs(1)
 perlguts(1)
 perlcall(1)
-
-
-Todo
-
-The package needs to be divided in more modules:
-	Net::SSLeay::X509
-	Net::SSLeay::Session
-	Net::SSLeay::CTX
-	Net::SSLeay::ERR
-	etc.
-
-Callback glue for the rest of the callbacks (only the verify callback has
-been implemented yet).
-
-Add perlish more behaviour where it makes sense.
 
 --Sampo

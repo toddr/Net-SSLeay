@@ -1,10 +1,12 @@
 /* SSLeay.xs - Perl module for using Eric Young's implementation of SSL
  *
- * Copyright (c) 1996 Sampo Kellomaki <sampo@iki.fi>
+ * Copyright (c) 1996,1998 Sampo Kellomaki <sampo@iki.fi>
  * All Rights Reserved.
  *
+ * 19.6.1998, Maintenance release to sync with SSLeay-0.9.0, --Sampo
+ * 
  * The distribution and use of this module are subject to the conditions
- * listed in COPYRIGHT file at the root of Eric Young's SSLeay-0.6.0
+ * listed in COPYRIGHT file at the root of Eric Young's SSLeay-0.9.0
  * distribution (i.e. free, but mandatory attribution and NO WARRANTY).
  */
 
@@ -25,7 +27,7 @@ extern "C" {
 
 /* Debugging output */
 
-#if 1
+#if 0
 #define PR(s) printf(s);
 #define PRN(s,n) printf("'%s' (%d)\n",s,n);
 #define SEX_DEBUG 1
@@ -42,6 +44,8 @@ char *s;
     croak("%s not implemented on this architecture", s);
     return -1;
 }
+
+/* xsub automagically generated constant evaluator function */
 
 static double
 constant(name, arg)
@@ -1307,11 +1311,13 @@ not_there:
     return 0;
 }
 
+/* ============= callback stuff ============== */
+
 static SV * ssleay_verify_callback = (SV*)NULL;
 
 static int
 ssleay_verify_callback_glue (int ok, X509 *subj_cert, X509 *issuer_cert,
-                      int depth, int errorcode)
+                      int depth, int errorcode, char* arg, STACK* cert_chain)
 {
 	dSP ;
 	int count,res;
@@ -1319,12 +1325,16 @@ ssleay_verify_callback_glue (int ok, X509 *subj_cert, X509 *issuer_cert,
 	ENTER ;
 	SAVETMPS;
 
+	PRN("verify callback glue", ok);
+
 	PUSHMARK(sp);
 	XPUSHs(sv_2mortal(newSViv(ok)));
 	XPUSHs(sv_2mortal(newSViv((int)subj_cert)));
 	XPUSHs(sv_2mortal(newSViv((int)issuer_cert)));
 	XPUSHs(sv_2mortal(newSViv(depth)));
 	XPUSHs(sv_2mortal(newSViv(errorcode)));
+	XPUSHs(sv_2mortal(newSViv((int)arg)));
+	XPUSHs(sv_2mortal(newSViv((int)cert_chain)));
 	PUTBACK ;
 	
 	if (ssleay_verify_callback == NULL)
@@ -1339,8 +1349,48 @@ ssleay_verify_callback_glue (int ok, X509 *subj_cert, X509 *issuer_cert,
 	
 	if (count != 1)
 		croak ( "Net::SSLeay: verify_callback "
-			"perl function did not return 1 value.\n");
-	res = POPi ;	
+			"perl function did not return a scalar.\n");
+	res = POPi ;
+
+	PUTBACK ;
+	FREETMPS ;
+	LEAVE ;
+	
+	return POPi;
+}
+
+static SV * ssleay_ctx_verify_callback = (SV*)NULL;
+
+static int
+ssleay_ctx_verify_callback_glue (int ok, X509_STORE_CTX* ctx)
+{
+	dSP ;
+	int count,res;
+	
+	ENTER ;
+	SAVETMPS;
+	
+	PRN("ctx verify callback glue", ok);
+
+	PUSHMARK(sp);
+	XPUSHs(sv_2mortal(newSViv(ok)));
+	XPUSHs(sv_2mortal(newSViv((int)ctx)));
+	PUTBACK ;
+	
+	if (ssleay_ctx_verify_callback == NULL)
+		croak ("Net::SSLeay: ctx_verify_callback called, but not "
+			"set to point to any perl function.\n");
+
+	PR("About to call ctx verify callback.\n");	
+	count = perl_call_sv(ssleay_ctx_verify_callback, G_SCALAR);
+	PR("Returned from ctx verify callback.\n");	
+
+	SPAGAIN;
+	
+	if (count != 1)
+		croak ( "Net::SSLeay: ctx_verify_callback "
+			"perl function did not return a scalar.\n");
+	res = POPi ;
 
 	PUTBACK ;
 	FREETMPS ;
@@ -1361,18 +1411,97 @@ constant(name,arg)
 int
 hello()
         CODE:
-        PR("SSLeay Hello World!\n");
+        PR("\tSSLeay Hello World!\n");
         RETVAL = 1;
         OUTPUT:
         RETVAL
 
+#if 0 /* ============= SSL CONTEXT functions ============== */
+#endif
+
 SSL_CTX *
 SSL_CTX_new()
+     CODE:
+     RETVAL = SSL_CTX_new (SSLv23_method());
+     OUTPUT:
+     RETVAL
+
+SSL_CTX *
+SSL_CTX_v2_new()
+     CODE:
+     RETVAL = SSL_CTX_new (SSLv2_method());
+     OUTPUT:
+     RETVAL
+
+SSL_CTX *
+SSL_CTX_v3_new()
+     CODE:
+     RETVAL = SSL_CTX_new (SSLv3_method());
+     OUTPUT:
+     RETVAL
+
+SSL_CTX *
+SSL_CTX_v23_new()
+     CODE:
+     RETVAL = SSL_CTX_new (SSLv23_method());
+     OUTPUT:
+     RETVAL
 
 void
 SSL_CTX_free(ctx)
      SSL_CTX *	        ctx
 
+int
+SSL_CTX_add_session(ctx,ses)
+     SSL_CTX *          ctx
+     SSL_SESSION *      ses
+
+int
+SSL_CTX_remove_session(ctx,ses)
+     SSL_CTX *          ctx
+     SSL_SESSION *      ses
+
+void
+SSL_CTX_flush_sessions(ctx,tm)
+     SSL_CTX *          ctx
+     long               tm
+
+int
+SSL_CTX_set_default_verify_paths(ctx)
+     SSL_CTX *          ctx
+
+int
+SSL_CTX_load_verify_locations(ctx,CAfile,CApath)
+     SSL_CTX * ctx
+     char * CAfile
+     char * CApath
+     CODE:
+     RETVAL = SSL_CTX_load_verify_locations (ctx,
+					     CAfile?(*CAfile?CAfile:NULL):NULL,
+					     CApath?(*CApath?CApath:NULL):NULL
+					     );
+     OUTPUT:
+     RETVAL
+
+void
+SSL_CTX_set_verify(ctx,mode,callback)
+     SSL_CTX * ctx
+     int                mode
+     SV *               callback
+     CODE:
+     if (ssleay_ctx_verify_callback == (SV*)NULL) {
+        ssleay_ctx_verify_callback = newSVsv(callback);
+     } else {
+         SvSetSV (ssleay_ctx_verify_callback, callback);
+     }
+     if (SvTRUE(ssleay_ctx_verify_callback)) {
+         SSL_CTX_set_verify(ctx,mode,&ssleay_ctx_verify_callback_glue);
+     } else {
+         SSL_CTX_set_verify(ctx,mode,NULL);
+     }
+
+#if 0 /* ============= SSL functions ============== */
+#endif
 
 SSL *
 SSL_new(ctx)
@@ -1382,10 +1511,12 @@ void
 SSL_free(s)
      SSL *              s
 
+#if 0 /* this seems to be gone in 0.9.0 */
 void
 SSL_debug(file)
-     char *             file
+       char *             file
 
+#endif
 
 int
 SSL_accept(s)
@@ -1463,6 +1594,12 @@ SSL_use_RSAPrivateKey_file(s,file,type)
      int                type
 
 int
+SSL_CTX_use_RSAPrivateKey_file(ctx,file,type)
+     SSL_CTX *          ctx
+     char *             file
+     int                type
+
+int
 SSL_use_PrivateKey(s,pkey)
      SSL *              s
      EVP_PKEY *         pkey
@@ -1477,6 +1614,12 @@ SSL_use_PrivateKey_ASN1(pk,s,d,len)
 int
 SSL_use_PrivateKey_file(s,file,type)
      SSL *              s
+     char *             file
+     int                type
+
+int
+SSL_CTX_use_PrivateKey_file(ctx,file,type)
+     SSL_CTX *          ctx
      char *             file
      int                type
 
@@ -1497,6 +1640,11 @@ SSL_use_certificate_file(s,file,type)
      char *             file
      int                type
 
+int
+SSL_CTX_use_certificate_file(ctx,file,type)
+     SSL_CTX *          ctx
+     char *             file
+     int                type
 
 char *
 SSL_state_string(s)
@@ -1586,15 +1734,11 @@ SSL_set_verify(s,mode,callback)
          ssleay_verify_callback = newSVsv(callback);
      else
          SvSetSV (ssleay_verify_callback, callback);
-     if (SvTRUE(ssleay_verify_callback))
+     if (SvTRUE(ssleay_verify_callback)) {
          SSL_set_verify(s,mode,&ssleay_verify_callback_glue);
-     else
+     } else {
          SSL_set_verify(s,mode,NULL);
-
-void
-SSL_flush_sessions(ctx,tm)
-     SSL_CTX *          ctx
-     long               tm
+     }
 
 void
 SSL_set_bio(s,rbio,wbio)
@@ -1633,21 +1777,39 @@ SSL_set_session(to,ses)
      SSL *              to
      SSL_SESSION *      ses
 
-int
-SSL_add_session(ctx,ses)
-     SSL_CTX *          ctx
-     SSL_SESSION *      ses
-
-void
-SSL_remove_session(ctx,ses)
-     SSL_CTX *          ctx
-     SSL_SESSION *      ses
-
 SSL_SESSION *
 d2i_SSL_SESSION(a,pp,length)
      SSL_SESSION *      &a
      unsigned char *    &pp
      long               length
+
+#if 0 /* SSLeay-0.9.0 defines these as macros. I expand them here for safety's sake */
+#endif
+
+int
+SSL_add_session(ctx,ses)
+     SSL_CTX *          ctx
+     SSL_SESSION *      ses
+     CODE:
+     RETVAL = SSL_CTX_add_session(ctx,ses);
+     OUTPUT:
+     RETVAL
+
+int
+SSL_remove_session(ctx,ses)
+     SSL_CTX *          ctx
+     SSL_SESSION *      ses
+     CODE:
+     RETVAL = SSL_CTX_remove_session(ctx,ses);
+     OUTPUT:
+     RETVAL
+
+void
+SSL_flush_sessions(ctx,tm)
+     SSL_CTX *          ctx
+     long               tm
+     CODE:
+     SSL_CTX_flush_sessions(ctx,tm);
 
 SSL_SESSION *
 SSL_get_session(s)
@@ -1681,77 +1843,117 @@ SSL_CTX_sessions(ctx)
      OUTPUT:
      RETVAL
 
-int
+unsigned long
 SSL_CTX_sess_number(ctx)
      SSL_CTX *          ctx
      CODE:
-     RETVAL = (ctx == NULL) ? NULL : ctx -> sessions -> num_items;
+     RETVAL = (ctx == NULL || ctx -> sessions == NULL)
+              ? 0 : ctx -> sessions -> num_items;
      OUTPUT:
      RETVAL
 
-long
+int
 SSL_CTX_sess_connect(ctx)
      SSL_CTX *          ctx
      CODE:
-     RETVAL = (ctx == NULL) ? NULL : ctx -> sess_connect;
+     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_connect;
      OUTPUT:
      RETVAL
 
-long
+int
+SSL_CTX_sess_connect_renegotiate(ctx)
+     SSL_CTX *          ctx
+     CODE:
+     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_connect_renegotiate;
+     OUTPUT:
+     RETVAL
+
+int
 SSL_CTX_sess_connect_good(ctx)
      SSL_CTX *          ctx
      CODE:
-     RETVAL = (ctx == NULL) ? NULL : ctx -> sess_connect_good;
+     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_connect_good;
      OUTPUT:
      RETVAL
 
-long
+int
 SSL_CTX_sess_accept(ctx)
      SSL_CTX *          ctx
      CODE:
-     RETVAL = (ctx == NULL) ? NULL : ctx -> sess_accept;
+     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_accept;
      OUTPUT:
      RETVAL
 
-long
+int
+SSL_CTX_sess_accept_renegotiate(ctx)
+     SSL_CTX *          ctx
+     CODE:
+     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_accept_renegotiate;
+     OUTPUT:
+     RETVAL
+
+int
 SSL_CTX_sess_accept_good(ctx)
      SSL_CTX *          ctx
      CODE:
-     RETVAL = (ctx == NULL) ? NULL : ctx -> sess_accept_good;
+     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_accept_good;
      OUTPUT:
      RETVAL
 
-long
+int
 SSL_CTX_sess_hits(ctx)
      SSL_CTX *          ctx
      CODE:
-     RETVAL = (ctx == NULL) ? NULL : ctx -> sess_hit;
+     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_hit;
      OUTPUT:
      RETVAL
 
-long
+int
 SSL_CTX_sess_cb_hits(ctx)
      SSL_CTX *          ctx
      CODE:
-     RETVAL = (ctx == NULL) ? NULL : ctx -> sess_cb_hit;
+     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_cb_hit;
      OUTPUT:
      RETVAL
 
-long
+int
 SSL_CTX_sess_misses(ctx)
      SSL_CTX *          ctx
      CODE:
-     RETVAL = (ctx == NULL) ? NULL : ctx -> sess_miss;
+     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_miss;
      OUTPUT:
      RETVAL
 
-long
+int
 SSL_CTX_sess_timeouts(ctx)
      SSL_CTX *          ctx
      CODE:
-     RETVAL = (ctx == NULL) ? NULL : ctx -> sess_timeout;
+     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_timeout;
      OUTPUT:
      RETVAL
+
+int
+SSL_CTX_sess_cache_full(ctx)
+     SSL_CTX *          ctx
+     CODE:
+     RETVAL = (ctx == NULL) ? 0 : ctx -> sess_cache_full;
+     OUTPUT:
+     RETVAL
+
+int
+SSL_CTX_sess_get_cache_size(ctx)
+     SSL_CTX *          ctx
+     CODE:
+     RETVAL = (ctx == NULL) ? 0 : ctx -> session_cache_size;
+     OUTPUT:
+     RETVAL
+
+void
+SSL_CTX_sess_set_cache_size(ctx,size)
+     SSL_CTX *          ctx
+     int                size      
+     CODE:
+     if (ctx != NULL) ctx -> session_cache_size = size;
 
 int
 SSL_want(s)
@@ -1802,6 +2004,34 @@ void
 SSL_load_error_strings()
 
 void
+ERR_load_crypto_strings()
+
+void
+SSLeay_add_ssl_algorithms()
+
+void
 ERR_load_SSL_strings()
 
+#if 0 /* Minimal X509 stuff..., this is a bit ugly and should be put in its own modules Net::SSLeay::X509.pm */
+#endif
 
+X509_NAME*
+X509_get_issuer_name(cert)
+     X509 *      cert
+
+X509_NAME*
+X509_get_subject_name(cert)
+     X509 *      cert
+
+void
+X509_NAME_oneline(name)
+     X509_NAME *    name
+     PREINIT:
+     char buf[32768];
+     CODE:
+     ST(0) = sv_newmortal();   /* Undefined to start with */
+     if (X509_NAME_oneline(name, buf, sizeof(buf)))
+         sv_setpvn( ST(0), buf, strlen(buf));
+
+#if 0 /* EOF - SSLeay.xs */
+#endif

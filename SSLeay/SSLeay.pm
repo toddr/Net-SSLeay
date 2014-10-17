@@ -1,15 +1,15 @@
-# SSLeay.pm - Perl module for using Eric Young's implementation of SSL
+# Net::SSLeay.pm - Perl module for using Eric Young's implementation of SSL
 #
-# Copyright (c) 1996 Sampo Kellomaki <sampo@iki.fi>
-# All Rights Reserved.
+# Copyright (c) 1996,1998 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
+# Version 1.00, 19.6.1998
 #
 # The distribution and use of this module are subject to the conditions
-# listed in COPYRIGHT file at the root of Eric Young's SSLeay-0.6.0
+# listed in COPYRIGHT file at the root of Eric Young's SSLeay-0.9.0
 # distribution (i.e. free, but mandatory attribution and NO WARRANTY).
 
 package Net::SSLeay;
 
-$trace = 3;
+$trace = 0;  # 0=only errors, 1=ciphers, 2=progress, 3=dump data
 
 use strict;
 use Carp;
@@ -20,7 +20,7 @@ require Exporter;
 require DynaLoader;
 require AutoLoader;
 
-$VERSION = '0.04';
+$VERSION = '1.00';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -224,10 +224,12 @@ $VERSION = '0.04';
 	WRITING
 	X509_LOOKUP
 	CTX_new
+	CTX_v2_new
+	CTX_v3_new
+	CTX_v23_new
 	CTX_free
 	new
 	free
-	debug
 	accept
 	clear
 	connect
@@ -240,12 +242,14 @@ $VERSION = '0.04';
 	use_RSAPrivateKey
 	use_RSAPrivateKey_ASN1
 	use_RSAPrivateKey_file
+	CTX_use_RSAPrivateKey_file
 	use_PrivateKey
 	use_PrivateKey_ASN1
 	use_PrivateKey_file
 	use_certificate
 	use_certificate_ASN1
 	use_certificate_file
+	CTX_use_certificate_file
 	load_error_strings
 	ERR_load_SSL_strings
 	state_string
@@ -283,6 +287,22 @@ $VERSION = '0.04';
 	ERR_error_string
 	err
 	clear_error
+	X509_get_issuer_name
+	X509_get_subject_name
+        X509_NAME_oneline
+	die_if_ssl_error
+	die_now
+	print_errs
+	set_server_cert_and_key
+        make_form
+        make_headers
+	do_https
+	get_https
+        post_https
+        sslcat
+	ssl_read_all
+        ssl_write_all
+        dump_peer_certificate
 );
 
 sub AUTOLOAD {
@@ -310,6 +330,36 @@ bootstrap Net::SSLeay $VERSION;
 
 # Preloaded methods go here.
 
+### Print SSLeay error stack
+
+sub print_errs {
+    my ($msg) = @_;
+    my ($count, $err) = (0,0);
+    while ($err = ERR_get_error()) {
+        $count ++;
+	warn "$msg $$: $count - " . ERR_error_string($err) . "\n";
+    }
+    return $count;
+}
+
+# Death is conditional to SSLeay errors existing, i.e. this function checks
+# for errors and only dies in affirmative.
+# usage: Net::SSLeay::write($ssl, "foo") or die_if_ssl_error("SSL write ($!)");
+
+sub die_if_ssl_error {
+    my ($msg) = @_;    
+    die "$$: $msg\n" if print_errs($msg);
+}
+
+# Unconditional death. Used to print SSLeay errors before dying.
+# usage: Net::SSLeay:connect($ssl) or die_now("Failed SSL connect ($!)");
+
+sub die_now {
+    my ($msg) = @_;    
+    print_errs($msg);
+    die "$$: $msg\n";
+}
+
 # Autoload methods go after =cut, and are processed by the autosplit program.
 
 1;
@@ -322,13 +372,81 @@ Net::SSLeay - Perl extension for using Eric Young's implementation of SSL
 
 =head1 SYNOPSIS
 
-  use Net::SSLeay;
+  use Net::SSLeay, qw(get_https post_https sslcat make_headers make_form);
 
-See ssl.h header from SSLeay C distribution for list of functions to call.
-	
-SSLeay names are stripped of the initial `SSL_', generally you should
-use Net::SSLeay:: in place. For example:
-  
+  ($page) = get_https('www.cryptsoft.com', 443, '/');                 # 1
+
+  ($page, $response, %reply_headers)
+	 = get_https('www.cryptsoft.com', 443, '/',                   # 2
+	 	make_headers(
+			'User-Agent' => 'Cryptozilla/5.0b1',
+			'Referer'    => 'https://brutus.neuronio.pt'
+		));
+
+  ($page, $response, %reply_headers)
+	 = post_https('www.cryptsoft.com', 443, '/foo.cgi', '',       # 3
+		make_form(
+			'OK'   => '1',
+			'name' => 'Sampo'
+		));
+
+  $reply = sslcat($host, $port, $request);                            # 4
+
+  $Net::SSLeay::trace = 2;  # 0=no debugging, 1=ciphers, 2=trace, 3=dump data
+
+=head1 DESCRIPTION
+
+This module offers some high level convinience functions for accessing
+web pages on SSL servers, a sslcat() function for writing your own
+clients, and finally access to the SSL api of SSLeay package so you
+can write servers or clients for more complicated applications.
+
+For high level functions it is most convinient to import them to your
+main namespace as indicated in the Synopsis. Case 1 demonstrates
+typical invocation of get_https() to fetch an HTML page from secure
+server. The first argument provides host name or ip in dotted decimal
+notation of the remote server to contact. Second argument is the TCP
+port at the remote end (your own port is picked arbitrarily from high
+numbered ports as usual for TCP). The third argument is the URL of the
+page without the host name part. If in doubt consult HTTP
+specifications at <http://www.w3c.org>
+
+Case 2 demonstrates full fledged use of get_https. As can be seen,
+get_https parses the response and response headers and returns them as
+a list, which can be captured in a hash for later reference. Also a
+fourth argument to get_https is used to insert some additional headers
+in the request. make_headers is a function that will convert a list or
+hash to such headers. By default get_https supplies Host (make virtual
+hosting easy) and Accept (reportedly needed by IIS) headers.
+
+Case 3 invokes post_https to submit a HTML/CGI form to secure
+server. First four arguments are equal to get_https (note that empty
+string ('') is passed as header argument). The fifth argument is the
+contents of the form formatted according to CGI specification. In this
+case the helper function make_https() is used to do the formatting,
+but you could pass any string. The post_https() automatically adds
+Content-Type and Content-Length headers to the request.
+
+Case 4 shows the fundamental sslcat() function (inspired in spirit by
+netcat utility :-). Its your swiss army knife that allows you to
+easily contact servers, send some data, and then get the response. You
+are responsible for formatting the data and parsing the response -
+sslcat is just a transport.
+
+The trace global variable can be used to control the verbosity of high
+level functions. Level 0 only emits error messages.
+
+=head2 Low level API
+
+In addition to the high level functions outlined above, this module
+contains straight forward access to SSLeay's SSL C api. Only the SSL
+subpart of SSLeay is implemented (if anyone wants to implement other
+parts, feel free to submit patches).
+
+See ssl.h header from SSLeay C distribution for list of low lever
+SSLeay functions to call. The module strips SSLeay names of the initial
+`SSL_', generally you should use Net::SSLeay:: in place. For example:
+
 In C:
 
 	#include <ssl.h>
@@ -360,37 +478,53 @@ Following new functions behave in perlish way:
                                     # Performs SSL_write, but automatically
                                     # figures out the size of $foo
 
-	$got = Net::SSLeay::cat($dest_host, $port, $foo);
-                                    # Sends $foo and gets response
+In order to use the low level API you should start your programs with
+the following encantation (this changed from previous version):
 
-=head1 DESCRIPTION
+	use Net::SSLeay qw(die_now die_if_ssl_error);
+	Net::SSLeay::load_error_strings();
+	Net::SSLeay::SSLeay_add_ssl_algorithms();   # Important!
 
-Perl glue to call some of the functions in SSLeay library. Note: this module
-is still under construction. I'll implement more of SSLeay and associated
-libraries once I understand better how to use them. Also documentation
-will improve once the SSLeay documentation improves.
+die_now() and die_if_ssl_error() are used to conveniently print SSLeay error
+stack when something goes wrong, thusly:
 
-Currently much of the stuff that is implemented as C macros is missing.
-Interface to supporting libraries is also missing.
+	Net::SSLeay:connect($ssl) or die_now("Failed SSL connect ($!)");
+	Net::SSLeay::write($ssl, "foo") or die_if_ssl_error("SSL write ($!)");
 
-This module uses SSLeay-0.6.0, be sure you get it first.
+You can also use Net::SSLeay::print_errs() to dump the error stack without
+exiting the program. As can be seen, your code becomes much more readable
+if you import the error reporting functions to your main name space.
+
+I can not emphasize enough the need to check error returns. Use these
+functions even in most simple programs, they will reduce debugging
+time greatly. Do not ask questions in mailing list without having
+first sprinkled these in your code.
 
 =head2 Sockets
 
 Perl uses filehandles for all I/O. While SSLeay has quite flexible BIO
-mechanism, this extension still sticks to using file descriptors. Thus
-to attach SSLeay to socket you should use fileno to extract the
-underlying file descriptor:
+mechanism and perl has evolved PerlIO mechanism, this module still
+sticks to using file descriptors. Thus to attach SSLeay to socket you
+should use fileno() to extract the underlying file descriptor:
 
     Net::SSLeay::set_fd($ssl, fileno(S));   # Must use fileno
 
+You should also use `$|=1;' to eliminate STDIO buffering so you do not
+get confused if you use perl I/O functions to manipulate your socket
+handle.
+
+If you need to select(2) on the socket, go right ahead, but be warned
+that SSLeay does some internal buffering so SSL_read does not always
+return data even if socket selected for reading (just keep on
+selecting and trying to read). Net::SSLeay.pm is no different from the
+C language SSLeay in this respect.
 
 =head2 Callbacks
 
 At the moment the implementation of verify_callback is crippeled in
 the sense that at any given time there can be only one call back which
-is shared by all SSLeay contexts, sessions ans connections. This is
-due to us having to keep the reference to the perl call back in a
+is shared by all SSLeay contexts, sessions and connections. This is
+due to having to keep the reference to the perl call back in a
 static variable so that the callback C glue can find it. To remove
 this restriction would require either a more complex data structure
 (like a hash?) in XSUB to map the call backs to their owners or,
@@ -398,36 +532,63 @@ cleaner, adding a context pointer in the SSL structure. This context would
 then be passed to the C callback, which in our case would be the glue
 to look up the proper Perl function from the context and call it.
 
+---- inaccurate ----
 The verify call back looks like this in C:
 
 	int (*callback)(int ok,X509 *subj_cert,X509 *issuer_cert,
-                        int depth,int errorcode)
+                        int depth,int errorcode,char *arg,STACK *cert_chain)
 
 The corresponding Perl function should be something like this:
 
 	sub verify {
-		my ($ok, $subj_cert, $issuer_cert, $depth, $errorcode) = @_;
-		print "Verifying certificate...\n";
+	    my ($ok, $subj_cert, $issuer_cert, $depth, $errorcode,
+		$arg, $chain) = @_;
+	    print "Verifying certificate...\n";
 		...
+	    return $ok;
 	}
 
 It is used like this:
 
 	Net::SSLeay::set_verify ($ssl, Net::SSLeay::VERIFY_PEER, \&verify);
 
+No other callbacks are implemented. You do not need to use any
+callback for simple (i.e. normal) cases where the SSLeay built-in
+verify mechanism satisfies your needs.
+---- end inaccurate ----
 
-No other callbacks are implemented yet.
+If you want to use callback stuff, see examples/callback.pl! Its the
+only one I'm able to make work reliably.
+
+=head2 X509 stuff
+
+This module largely lacks interface to the X509 routines, but as I was
+lazy and needed them, the following kludges are implemented:
+
+    $x509_name = Net::SSLeay::X509_get_subject_name($x509_cert);
+    $x509_name = Net::SSLeay::X509_get_issuer_name($x509_cert);
+    print Net::SSLeay::X509_NAME_oneline($x509_name);
+
+Actually you should consider using the following helper function:
+
+    print Net::SSLeay::dump_peer_certificate($ssl);
 
 =head1 EXAMPLES
+
+One very good example is to look at the implementation of sslcat() in the
+SSLeay.pm file.
 
 Following is a simple SSLeay client (with too little error checking :-(
 
     #!/usr/local/bin/perl
+    #';
     use Socket;
-    use Net::SSLeay;
+    use Net::SSLeay qw(die_now die_if_ssl_error) ;
+    Net::SSLeay::load_error_strings();
+    Net::SSLeay::SSLeay_add_ssl_algorithms();
     
     ($dest_serv, $port, $msg) = @ARGV;      # Read command line
-    $port = getservbyname  ($port, 'tcp')   unless $port =~ /^\d+$/;
+    $port = getservbyname ($port, 'tcp') unless $port =~ /^\d+$/;
     $dest_ip = gethostbyname ($dest_serv);
     
     $sockaddr_template = 'S n a4 x8';
@@ -435,21 +596,23 @@ Following is a simple SSLeay client (with too little error checking :-(
     
     socket  (S, &AF_INET, &SOCK_STREAM, 0)  or die "socket: $!";
     connect (S, $dest_serv_params)          or die "connect: $!";
-    select  (S); $| = 1; select (STDOUT);
+    select  (S); $| = 1; select (STDOUT);   # Eliminate STDIO buffering
     
     # The network connection is now open, lets fire up SSL    
 
-    $ctx = Net::SSLeay::CTX_new() or die "Failed to create SSL_CTX $!";
-    $ssl = Net::SSLeay::new($ctx) or die "Failed to create SSL $!";
+    $ctx = Net::SSLeay::CTX_new() or die_now("Failed to create SSL_CTX $!");
+    $ssl = Net::SSLeay::new($ctx) or die_now("Failed to create SSL $!");
     Net::SSLeay::set_fd($ssl, fileno(S));   # Must use fileno
-    $res = Net::SSLeay::connect($ssl);
-    print "Cipher '" . Net::SSLeay::get_cipher($ssl) . "'\n";
+    $res = Net::SSLeay::connect($ssl) and die_if_ssl_error("ssl connect");
+    print "Cipher `" . Net::SSLeay::get_cipher($ssl) . "'\n";
     
     # Exchange data
     
     $res = Net::SSLeay::write($ssl, $msg);  # Perl knows how long $msg is
+    die_if_ssl_error("ssl write");
     shutdown S, 1;  # Half close --> No more output, sends EOF to server
     $got = Net::SSLeay::read($ssl);         # Perl returns undef on failure
+    die_if_ssl_error("ssl read");
     print $got;
 	    
     Net::SSLeay::free ($ssl);               # Tear down connection
@@ -460,10 +623,11 @@ Following is a simple SSLeay echo server (non forking):
 
     #!/usr/local/bin/perl -w
     use Socket;
-    use Net::SSLeay;
-
-    $our_hostname = `hostname`; chop($our_hostname);
-    $our_ip = gethostbyname($our_hostname);
+    use Net::SSLeay qw(die_now die_if_ssl_error);
+    Net::SSLeay::load_error_strings();
+    Net::SSLeay::SSLeay_add_ssl_algorithms();
+ 
+    $our_ip = "\0\0\0\0"; # Bind to all interfaces
     $port = 1235;							 
     $sockaddr_template = 'S n a4 x8';
     $our_serv_params = pack ($sockaddr_template, &AF_INET, $port, $our_ip);
@@ -471,8 +635,16 @@ Following is a simple SSLeay echo server (non forking):
     socket (S, &AF_INET, &SOCK_STREAM, 0)  or die "socket: $!";
     bind (S, $our_serv_params)             or die "bind:   $!";
     listen (S, 5)                          or die "listen: $!";
-    $ctx = Net::SSLeay::CTX_new ()         or die "CTX_new ($ctx): $!";
+    $ctx = Net::SSLeay::CTX_new ()         or die_now("CTX_new ($ctx): $!");
 
+    # Following will ask password unless private key is not encrypted
+    Net::SSLeay::CTX_use_RSAPrivateKey_file ($ctx, 'plain-rsa.pem',
+                                             &Net::SSLeay::FILETYPE_PEM);
+    die_if_ssl_error("private key");
+    Net::SSLeay::CTX_use_certificate_file ($ctx, 'plain-cert.pem',
+ 				           &Net::SSLeay::FILETYPE_PEM);
+    die_if_ssl_error("certificate");
+    
     while (1) {    
         print "Accepting connections...\n";
         ($addr = accept (NS, S))           or die "accept: $!";
@@ -485,22 +657,20 @@ Following is a simple SSLeay echo server (non forking):
     
 	# We now have a network connection, lets fire up SSLeay...
 
-        $ssl = Net::SSLeay::new($ctx)      or die "SSL_new ($ssl): $!";
+        $ssl = Net::SSLeay::new($ctx)      or die_now("SSL_new ($ssl): $!");
         Net::SSLeay::set_fd($ssl, fileno(NS));
     
-        Net::SSLeay::use_RSAPrivateKey_file ($ssl, 'plain-rsa.pem',
-                                             &Net::SSLeay::FILETYPE_PEM);
-        Net::SSLeay::use_certificate_file ($ssl, 'plain-cert.pem',
-	 				   &Net::SSLeay::FILETYPE_PEM);
-        $err = Net::SSLeay::accept($ssl);
-        print "Cipher '" . Net::SSLeay::get_cipher($ssl) . "'\n";
+        $err = Net::SSLeay::accept($ssl) and die_if_ssl_error('ssl accept');
+        print "Cipher `" . Net::SSLeay::get_cipher($ssl) . "'\n";
     
         # Connected. Exchange some data.
     
         $got = Net::SSLeay::read($ssl);     # Returns undef on fail
-        print "Got '$got' (" . length ($got) . " chars)\n";
-     
+        die_if_ssl_error("ssl read");
+        print "Got `$got' (" . length ($got) . " chars)\n";
+        
         Net::SSLeay::write ($ssl, uc ($got)) or die "write: $!";
+        die_if_ssl_error("ssl write");
     
         Net::SSLeay::free ($ssl);           # Tear down connection
         close NS;
@@ -509,22 +679,26 @@ Following is a simple SSLeay echo server (non forking):
 Yet another echo server. This one runs from /etc/inetd.conf so it avoids
 all the socket code over head. Only caveat is opening rsa key file -
 it had better be without any encryption or else it won't know where
-to ask for the password.
+to ask for the password. Note how STDIN and STDOUT are wired to SSL.
 
     #!/usr/local/bin/perl
     # /etc/inetd.conf
     #    ssltst stream tcp nowait root /path/to/server.pl server.pl
     # /etc/services
     #    ssltst		1234/tcp
-    use Net::SSLeay;
+    # '
+
+    use Net::SSLeay qw(die_now die_if_ssl_error);
+    Net::SSLeay::load_error_strings();
+    Net::SSLeay::SSLeay_add_ssl_algorithms();
+
     chdir '/key/dir' or die "chdir: $!";
     $| = 1;  # Piping hot!
     open LOG, ">>/dev/console" or die "Can't open log file $!";
     select LOG; print "server.pl started\n";
-
     
-    $ctx = Net::SSLeay::CTX_new()     or die "CTX_new ($ctx) ($!)";
-    $ssl = Net::SSLeay::new($ctx)     or die "new ($ssl) ($!)";
+    $ctx = Net::SSLeay::CTX_new()     or die_now "CTX_new ($ctx) ($!)";
+    $ssl = Net::SSLeay::new($ctx)     or die_now "new ($ssl) ($!)";
 
     # We get already open network connection from inetd, now we just
     # need to attach SSLeay to STDIN and STDOUT
@@ -532,29 +706,118 @@ to ask for the password.
     Net::SSLeay::set_wfd($ssl, fileno(STDOUT));
 
     Net::SSLeay::use_RSAPrivateKey_file ($ssl, 'plain-rsa.pem',
-				         &Net::SSLeay::FILETYPE_PEM);
+                                         &Net::SSLeay::FILETYPE_PEM);
+    die_if_ssl_error("private key");
     Net::SSLeay::use_certificate_file ($ssl, 'plain-cert.pem',
-				       &Net::SSLeay::FILETYPE_PEM);
-    Net::SSLeay::accept($ssl) or die "accept: $!";
-    print "Cipher '" . Net::SSLeay::get_cipher($ssl) . "'\n";
+	 			       &Net::SSLeay::FILETYPE_PEM);
+    die_if_ssl_error("certificate");
+
+    Net::SSLeay::accept($ssl) and die_if_ssl_err("ssl accept: $!");
+    print "Cipher `" . Net::SSLeay::get_cipher($ssl) . "'\n";
     
     $got = Net::SSLeay::read($ssl);
-    print "Got '$got' (" . length ($got) . " chars)\n";
+    die_if_ssl_error("ssl read");
+    print "Got `$got' (" . length ($got) . " chars)\n";
 
     Net::SSLeay::write ($ssl, uc($got)) or die "write: $!";
+    die_if_ssl_error("ssl write");
 
     Net::SSLeay::free ($ssl);         # Tear down the connection
     Net::SSLeay::CTX_free ($ctx);
     close LOG;
 
+There are also a number of example/test programs in the examples directory:
+
+    sslecho.pl   -  A simple server, not unlike the one above
+    minicli.pl   -  Implements a client using low level SSLeay routines
+    sslcat.pl    -  Demonstrates using high level sslcat utility function
+    get_page.pl  -  Is a utility for getting html pages from secure servers
+    callback.pl  -  Demonstrates certificate verification and callback usage
+    stdio_bulk.pl       - Does SSL over Unix pipes
+    ssl-inetd-serv.pl   - SSL server that can be invoked from inetd.conf
+    httpd-proxy-snif.pl - Utility that allows you to see how a browser
+                          sends https request to given server and what reply
+                          it gets back (very educative :-)
+    makecert.pl  -  Creates a self signed cert (does not use this module)
+
+=head1 LIMITATIONS
+
+Net::SSLeay::read uses internal buffer of 32KB, thus no single read
+will return more. In practice one read returns much less, usually
+as much as fits in one network packet. To work around this,
+you should use a loop like this:
+
+    $reply = '';
+    do {
+	$got = Net::SSLeay::read($ssl);
+	last if print_errs('SSL_read');
+	$reply .= $got;
+    } while ($got);
+
+Although there is no built in limit in Net::SSLeay::write, the network
+packet size limitation applies here as well, thus use:
+
+    $written = 0;
+    do {
+	$written .= Net::SSLeay::write($ssl, substr($message, $written));
+	last if print_errs('SSL_write');
+    } while ($written < length($message));
+
+Or alternatively you can just use the following convinence functions:
+
+    Net::SSLeay::ssl_write_all($ssl, $message) or die "ssl write failure";
+    $got = Net::SSLeay::ssl_read_all($ssl) or die "ssl read failure";
+
+=head2 KNOWN BUGS
+
+Autoloader emits `Argument "xxx" isn't numeric in entersub at blib/lib/Net/SSLeay.pm' warning if die_if_ssl_error is made autoloadable.
+
+Callback set using SSL_set_verify() does not appear to work. This may
+well be eay problem (e.g. see ssl/ssl_lib.c line 1029). Try using
+SSL_CTX_set_verify() instead and don't be surprised if even this stops
+working in future versions.
+
+Callback and certificate verification stuff is generally too little tested.
+
+Random numbers are not initialized randomly (e.g. /dev/random) by default.
+
+=head1 VERSION
+
+This man page documents version 1.00, released on 19.6.1998. This version
+had some API changes over 0.04 so I incremented the major version. Old
+scripts should work still with following minor modifications:
+	
+  1. You should add a call to Net::SSLeay::SSLeay_add_ssl_algorithms();
+  2. Name of Net::SSLeay::cat() has changed to Net::SSLeay::sslcat()
+
+There are currently two perl modules for using Eric Young's SSLeay C
+library: Net::SSLeay (maintaned by me) and SSLeay (maintained by Eric
+Young himself). This module is the Net::SSLeay variant.
+
+At the time of making this release, Eric's module was still quite
+scetchy and could not be used for real work, thus I felt motivated to
+make this maintenance release. This module is not planned to evolve to
+contain any further functionality, i.e. I will concentrate on just
+making a simple SSL connection over TCP socket. Presumably Eric's own
+module will offer full SSLeay API one day.
+
+This module uses SSLeay-0.9.0. It does not work with any earlier version
+and there is no guarantee that it will work with later versions either,
+though as long as Eric does not change his API, it should. This module
+requires perl5.004 (or better?) though I believe it would build with
+any perl5.002 or newer.
 
 =head1 AUTHOR
 
 Sampo Kellomaki <sampo@iki.fi>
 
+Please send bug reports to the above address. General questions should be
+sent either to me or to the mailing list (subscribe by sending mail
+to ssl-users-request@cryptsoft.com).
+
 =head1 COPYRIGHT
 
-Copyright (c) 1996 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
+Copyright (c) 1996,1998 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
 
 Distribution and use of this module is under the same terms as the
 SSLeay package itself (i.e. free, but mandatory attribution; NO
@@ -565,106 +828,236 @@ While the source distribution of this perl module does not contain Eric's
 code, if you use this module you will use Eric's library. Please give him
 credit.
 
+And remember, you, and nobody else but you, are responsible for
+auditing this module and Eric's library for security problems,
+backdoors, and general suitability for your application.
+
 =head1 SEE ALSO
 
-  perl-source-root/ext/Net/SSLeay/examples - Example servers and a client
-  doc directory of SSLeay distribution
+  your-perl-source/ext/Net/SSLeay/examples - Example servers and a clients
+  <http://www.neuronio.pt/SSLeay.pm.html/> - Net::SSLeay.pm home
+  <ftp://ftp.psy.uq.oz.au/pub/Crypto/SSL>  - current SSLeay C source
+  SSLeay-0.9.0/perl                        - Eric's SSLeay.pm
   <http://www.psy.uq.oz.au/~ftp/Crypto/>   - SSLeay online documentation 
-  <ftp://ftp.psy.uq.oz.au/pub/Crypto/SSL>  - current SSLeay source
+  ssl-users-request@cryptsoft.com          - General SSLeay mailing list
   <http://www.netscape.com/info/SSL.html>  - SSL Draft specification
-  <http://www.neuronio.pt/SSLeay.pm.html/> - SSLeay.pm home
+  <http://www.w3c.org>                     - HTTP specifications
 
 =cut
 
-sub print_errs {
-    my ($count, $err) = (0,0);
-    while ($err = Net::SSLeay::ERR_get_error()) {
-	$count ++;
-	print "$count - " . Net::SSLeay::ERR_error_string($err) . "\n";
+# `;
+
+###
+### Open TCP stream to given host and port, looking up the details
+### from system databases or DNS.
+###
+
+sub open_tcp_connection {
+    my ($dest_serv, $port) = @_;
+    $port = getservbyname  ($port, 'tcp') unless $port =~ /^\d+$/;
+    my $dest_serv_ip = gethostbyname ($dest_serv);
+    unless (defined($dest_serv_ip)) {
+	warn "$0 $$: open_tcp_connection: destination host not found:"
+            . " `$dest_serv' (port $port) ($!)\n";
+        return 0;
     }
-    return $count;
+    my $dest_serv_params = pack ('S n a4 x8', &AF_INET, $port, $dest_serv_ip);
+
+    printf STDERR "Opening connection to $dest_serv:$port (%x)\n",
+    $dest_serv_ip if $trace>1;
+    
+    if (socket (SSLCAT_S, &PF_INET, &SOCK_STREAM, 0)) {
+        warn "next connect\n" if $trace > 2;
+        if (connect (SSLCAT_S, $dest_serv_params)) {
+            my $old_out = select (SSLCAT_S); $| = 1; select ($old_out);
+            warn "connected to $dest_serv, $port\n" if $trace > 2;
+            return 1; # Success
+        }
+    }
+    warn "$0 $$: open_tcp_connection: failed `$dest_serv', $port ($!)\n";
+    close SSLCAT_S;
+    return 0; # Fail
 }
 
-sub cat { # address, port, message --> returns reply
+###
+### read and write helpers that block
+###
+
+sub ssl_read_all {
+    my ($ssl,$how_much) = @_;
+    $how_much = 2000000000 unless $how_much;
+    my ($reply, $got);
+    do {	
+	$got = Net::SSLeay::read($ssl,$how_much);
+	last if print_errs('SSL_read');
+	$how_much -= length($got);
+	warn "  got " . length($got) . ':'
+	    . length($reply) . " bytes.\n" if $trace == 2;
+	warn "  got `$got' (" . length($got) . ':'
+	    . length($reply) . " bytes)\n" if $trace>2;
+	$reply .= $got;
+    } while ($got && $how_much > 0);
+    return $reply;
+}
+
+sub ssl_write_all {
+    my ($ssl, $message) = @_;
+    my ($wrote, $written) = (0,0);
+    do {
+	$wrote .= Net::SSLeay::write($ssl, substr($message, $written));
+	$written += $wrote;
+	warn "  written so far $wrote:$written bytes\n" if $trace>1;
+	return undef if print_errs('SSL_write');
+    } while ($written < length($message));
+    return $written;
+}
+
+sub dump_peer_certificate {
+    my ($ssl) = @_;
+    my $cert = get_peer_certificate($ssl);
+    return if print_errs('get_peer_certificate');
+    return "Subject Name: "
+	. X509_NAME_oneline(X509_get_subject_name($cert)) . "\n"
+        . "Issuer  Name: "
+	. X509_NAME_oneline(X509_get_issuer_name($cert))  . "\n";
+}
+
+###
+### Basic request - response primitive
+###
+
+sub sslcat { # address, port, message --> returns reply
     my ($dest_serv, $port, $out_message) = @_;
-    my $chatlog = '';
-    my ($old_out, $dest_serv_ip, $sockaddr_template, $dest_serv_params);
-    my ($ctx, $ssl, $got);
+    my ($ctx, $ssl, $got);    
+
+    open_tcp_connection($dest_serv, $port) or return undef;
+	    
+    ### Do SSL negotiation stuff
+	    
+    warn "Creating SSL context...\n" if $trace>1;
+    load_error_strings();         # Some bloat, but I'm after ease of use
+    SSLeay_add_ssl_algorithms();  # and debuggability.
+    $ctx = CTX_new();
+    goto cleanup2 if print_errs('CTX_new') or !$ctx;
     
-    #
-    # Look up the numbers from system databases
-    #
+    warn "Creating SSL connection (context was '$ctx')...\n" if $trace>1;
+    $ssl = new($ctx);
+    goto cleanup if print_errs('SSL_new') or !$ssl;
     
-    $port = getservbyname  ($port, 'tcp') unless $port =~ /^\d+$/;
-    $dest_serv_ip = gethostbyname ($dest_serv);
+    warn "Setting fd (ctx $ctx, con $ssl)...\n" if $trace>1;
+    set_fd($ssl, fileno(SSLCAT_S));
+    goto cleanup if print_errs('set_fd');
     
-    #
-    # Create the socket and open a connection
-    #
+    warn "Entering SSL negotiation phase...\n" if $trace>1;
     
-    $sockaddr_template = 'S n a4 x8';
-    $dest_serv_params  = pack ($sockaddr_template, &AF_INET,
-			       $port, $dest_serv_ip);
+    $got = Net::SSLeay::connect($ssl);
+    warn "SSLeay connect returned $got\n" if $trace>1;
+    goto cleanup if print_errs('SSL_connect');
     
-    if (socket (SSLCAT_S, &AF_INET, &SOCK_STREAM, 0)) {
-	if (connect (SSLCAT_S, $dest_serv_params)) {
-	    
-	    $old_out = select (SSLCAT_S); $| = 1; select ($old_out);
-	    
-	    #
-	    # Do SSL negotiation stuff
-	    #
-	    
-	    #print "Creating SSL context...\n";
-	    $ctx = Net::SSLeay::CTX_new();
-	    Net::SSLeay::print_errs();
-	    
-	    #print "Creating SSL con (context was '$ctx')...\n";
-	    $ssl = Net::SSLeay::new($ctx);
-	    Net::SSLeay::print_errs();
-	    
-	    #print "Setting fd (ctx $ctx, con $ssl)...\n";
-	    Net::SSLeay::set_fd($ssl, fileno(SSLCAT_S));
-	    Net::SSLeay::print_errs();
-	    
-	    #print "Entering SSL negotiation phase...\n";
-		
-	    $got = Net::SSLeay::connect($ssl);
-	    #print "SSLeay connect returned $got\n";
-	    Net::SSLeay::print_errs();
-	    
-	    #print "Cipher '" . Net::SSLeay::get_cipher($ssl) . "'\n";
-	    Net::SSLeay::print_errs();
-	    
-	    #
-	    # Connected. Exchange some data.
-	    #
-	    
-	    #print "sslcat $$: sending '$out_message'...\n";
-	    $got = Net::SSLeay::write($ssl, $out_message);
-	    #print "write returned $got\n";
-	    Net::SSLeay::print_errs();
-	    
-	    shutdown SSLCAT_S, 1;  # Half close --> No more output
-	                           #                sends EOF to server
-	    
-	    #print "receiving...\n";
-	    $got = Net::SSLeay::read($ssl);
-	    Net::SSLeay::print_errs();
-	    #print "Got '$got' (" . length($got) . " chars)\n";
-	    
-	  Net::SSLeay::free ($ssl);
-          Net::SSLeay::print_errs();
-	  Net::SSLeay::CTX_free ($ctx);
-          Net::SSLeay::print_errs();
-	} else {
-	    print "Net::SSLeay::cat $$: Failed to connect to "
-		. "$dest_serv ($!).\n";
-	}
-	close SSLCAT_S;
-    } else {
-	print "Net::SSLeay::cat $$: Failed to create socket: $!.\n";
+    if ($trace) {	    
+	warn "Cipher `" . get_cipher($ssl) . "'\n";
+	print_errs('get_ciper');
+	warn dump_peer_certificate($ssl);
     }
+    
+    ### Connected. Exchange some data (doing repeated tries if necessary).
+        
+    warn "sslcat $$: sending " . length($out_message) . " bytes...\n"
+	if $trace == 2;
+    warn "sslcat $$: sending `$out_message' (" . length($out_message)
+	. " bytes)...\n" if $trace>2;
+    ssl_write_all($ssl, $out_message) or goto cleanup;
+    
+    shutdown SSLCAT_S, 1;  # Half close --> No more output, send EOF to server
+    
+    warn "waiting for reply...\n" if $trace>1;
+    $got = ssl_read_all($ssl);
+    warn "Got " . length($got) . " bytes.\n" if $trace == 2;
+    warn "Got `$got' (" . length($got) . " bytes)\n" if $trace>2;
+
+cleanup:	    
+    free ($ssl);
+    print_errs('SSL_free');
+cleanup2:
+    CTX_free ($ctx);
+    print_errs('CTX_free');
+    close SSLCAT_S;    
     return $got;
 }
 
+###
+### Easy set up of private key and certificate
+###
+
+sub set_server_cert_and_key {
+    my ($ctx, $cert_path, $key_path) = @_;    
+    my $errs;
+    # Following will ask password unless private key is not encrypted
+    CTX_use_RSAPrivateKey_file ($ctx, $key_path, &FILETYPE_PEM);
+    $errs += print_errs("private key `$key_path' ($!)");
+    CTX_use_certificate_file ($ctx, $cert_path, &FILETYPE_PEM);
+    $errs += print_errs("certificate `$cert_path' ($!)");
+    return ($errs == 0);
+}
+
+###
+### Easy https manipulation routines
+###
+
+sub make_form {
+    my (@fields) = @_;
+    my $form;
+    while (@fields) {
+	my ($name, $data) = (shift(@fields), shift(@fields));
+	$data =~ s/([^\w ])/sprintf("\%%02x",ord($1))/gse;
+	$data =~ tr[ ][+];
+	$form .= "$name=$data&";
+    }
+    chop $form;
+    return $form;
+}
+
+sub make_headers {
+    my (@headers) = @_;
+    my $headers;
+    while (@headers) {
+	$headers .= shift(@headers) . ': ' . shift(@headers) . "\r\n";
+    }
+    return $headers;
+}
+
+sub do_https {
+    my ($site, $port, $path, $method, $headers, $content, $mime_type) = @_;
+    
+    if ($content) {
+	$mime_type = "application/x-www-form-urlencoded" unless $mime_type;
+	my $len = length($content);
+	$content = "Content-Type: $mime_type\r\n"
+	    . "Content-Length: $len\r\n\r\n$content";
+    } else {
+	$content = "\r\n\r\n";
+    }
+    my $req = "$method $path HTTP/1.0\r\nHost: $site:$port\r\n"
+      . $headers . "Accept: */*\r\n$content";    
+
+    my $http = sslcat($site, $port, $req);
+
+    my ($response, $page);
+    ($headers, $page) = split /\s?\n\s?\n/, $http, 2;
+    ($response, $headers) = split /\s?\n/, $headers, 2;
+    return ($page, $response,
+	    map((/^(\S+)\:\s*(.*)$/), split(/\s?\n/, $headers)));
+}
+
+sub get_https {
+    my ($site, $port, $path, $headers, $content, $mime) = @_;
+    return do_https($site, $port, $path, 'GET', $headers, $content, $mime);
+}
+
+sub post_https {
+    my ($site, $port, $path, $headers, $post_str, $mime) = @_;
+    return do_https($site, $port, $path, 'POST', $headers, $post_str, $mime);
+}
+
+1;
+__END__

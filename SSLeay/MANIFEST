@@ -10,6 +10,11 @@ examples/minicli.pl
 examples/sslecho.pl
 examples/sslcat.pl
 examples/ssl-inetd-serv.pl
-examples/plain-cert.pem
-examples/plain-req.pem
-examples/plain-rsa.pem
+examples/callback.pl
+examples/bulk.pl
+examples/stdio_bulk.pl
+examples/https-proxy-snif.pl
+examples/get_page.pl
+examples/req.conf
+examples/makecert.pl
+examples/ssl_diff.pl

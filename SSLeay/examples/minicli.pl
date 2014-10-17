@@ -3,6 +3,8 @@
 
 use Socket;
 use Net::SSLeay;
+&Net::SSLeay::load_error_strings();
+&Net::SSLeay::SSLeay_add_ssl_algorithms();
 
 ($dest_serv, $port, $msg) = @ARGV;      # Read command line
 $port = getservbyname  ($port, 'tcp')   unless $port =~ /^\d+$/;
@@ -17,8 +19,8 @@ select  (S); $| = 1; select (STDOUT);
 
 # The network connection is now open, lets fire up SSL    
 
-$ctx = Net::SSLeay::CTX_new() or die "Failed to create SSL_CTX $!";
-$ssl = Net::SSLeay::new($ctx) or die "Failed to create SSL $!";
+$ctx = Net::SSLeay::CTX_new() or die_now("Failed to create SSL_CTX $!");
+$ssl = Net::SSLeay::new($ctx) or die_now("Failed to create SSL $!");
 Net::SSLeay::set_fd($ssl, fileno(S));   # Must use fileno
 $res = Net::SSLeay::connect($ssl);
 print "Cipher '" . Net::SSLeay::get_cipher($ssl) . "'\n";

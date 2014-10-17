@@ -1,96 +1,88 @@
 #!/usr/local/bin/perl -w
 # sslecho.pl - Echo server using SSL
 #
-# Copyright (c) 1996 Neuronio, Lda. All Rights Reserved.
-# Author: Sampo Kellomaki <sampo@iki.fi>
-# Date:   27.6.1996
+# Copyright (c) 1996,1998 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
+# Date:   27.6.1996, 8.6.1998
 #
-# Usage: ./sslecho.pl [*port*]
-# E.g.:  ./sslecho.pl 1234
+# Usage: ./sslecho.pl *port* *cert.pem* *key.pem*
+#
+# This server always binds to localhost as this is all that is needed
+# for tests.
 
+die "Usage: ./sslecho.pl *port* *cert.pem* *key.pem*\n" unless $#ARGV == 2;
+($port, $cert_pem, $key_pem) = @ARGV;
+$our_ip = "\x7F\0\0\x01";
+
+$trace = 2;
 use Socket;
-use Net::SSLeay;
-
-$port = shift;
-$port = 1234 unless $port;
-
-#
-# Look up the numbers from system databases
-#
-
-$our_hostname = `hostname`;
-chop($our_hostname);
-$our_ip = gethostbyname($our_hostname);
-$port   = getservbyname ($port, 'tcp') unless $port =~ /^\d+$/;
+use Net::SSLeay qw(sslcat die_now die_if_ssl_error);
+#$Net::SSLeay::trace = 3; # Super verbose debugging
 
 #
 # Create the socket and open a connection
 #
 
-$sockaddr_template = 'S n a4 x8';
-$our_serv_params = pack ($sockaddr_template, &AF_INET, $port, $our_ip);
-
+$our_serv_params = pack ('S n a4 x8', &AF_INET, $port, $our_ip);
 socket (S, &AF_INET, &SOCK_STREAM, 0)  or die "socket: $!";
-bind (S, $our_serv_params)             or die "bind:   $!";
+bind (S, $our_serv_params)             or die "bind:   $! (port=$port)";
 listen (S, 5)                          or die "listen: $!";
 
 #
 # Prepare SSLeay
 #
 
-print "Creating SSL context...\n";
-$ctx = Net::SSLeay::CTX_new () or die "CTX_new ($ctx): $!";
+Net::SSLeay::load_error_strings();
+Net::SSLeay::ERR_load_crypto_strings();
+Net::SSLeay::SSLeay_add_ssl_algorithms();
+
+print "sslecho: Creating SSL context...\n" if $trace>1;
+$ctx = Net::SSLeay::CTX_new () or die_now("CTX_new ($ctx): $!\n");
+print "sslecho: Setting cert and RSA key...\n" if $trace>1;
+Net::SSLeay::set_server_cert_and_key($ctx, $cert_pem, $key_pem) or die "key";
 
 while (1) {
     
-    print "$$: Accepting connections...\n";
+    print "sslecho $$: Accepting connections...\n" if $trace>1;
     ($addr = accept (NS, S)) or die "accept: $!";
     $old_out = select (NS); $| = 1; select ($old_out);  # Piping hot!
     
-    ($af,$client_port,$client_ip) = unpack($sockaddr_template,$addr);
-    @inetaddr = unpack('C4',$client_ip);
-    print "$af connection from " . join ('.', @inetaddr) . ":$client_port\n";
+    if ($trace) {
+	($af,$client_port,$client_ip) = unpack('S n a4 x8',$addr);
+	@inetaddr = unpack('C4',$client_ip);
+	print "$af connection from " . join ('.', @inetaddr)
+	    . ":$client_port\n" if $trace;;
+    }
     
     #
     # Do SSL negotiation stuff
     #
 
-    print "Creating SSL session (context was '$ctx')...\n";
-    $ssl = Net::SSLeay::new($ctx)  or die "new ($ssl): $!";
+    print "sslecho: Creating SSL session (cxt=`$ctx')...\n" if $trace>1;
+    $ssl = Net::SSLeay::new($ctx) or die_now("ssl new ($ssl): $!");
 
-    print "Setting fd (ctx $ctx, con $ssl)...\n";
+    print "sslecho: Setting fd (ctx $ctx, con $ssl)...\n" if $trace>1;
     Net::SSLeay::set_fd($ssl, fileno(NS));
 
-    print "Setting private key and certificate...\n";
+    print "sslecho: Entering SSL negotiation phase...\n" if $trace>1;
     
-    Net::SSLeay::use_RSAPrivateKey_file ($ssl, 'plain-rsa.pem',
-                                         &Net::SSLeay::FILETYPE_PEM)
-        or die "use_RSAPrivateKey_file: $!";
-    Net::SSLeay::use_certificate_file ($ssl, 'plain-cert.pem',
-                                         &Net::SSLeay::FILETYPE_PEM)
-        or die "use_certificate_file: $!";
-
-    print "Entering SSL negotiation phase...\n";
+    Net::SSLeay::accept($ssl);
+    die_if_ssl_error("ssl_echo: ssl accept: ($!)");
     
-    $err = Net::SSLeay::accept($ssl);
-    Net::SSLeay::print_errs() if $err;
-    
-    print "Cipher '" . Net::SSLeay::get_cipher($ssl) . "'\n";
+    print "sslecho: Cipher `" . Net::SSLeay::get_cipher($ssl)
+	. "'\n" if $trace;
     
     #
     # Connected. Exchange some data.
     #
     
-    $got = Net::SSLeay::read($ssl);
-    Net::SSLeay::print_errs();    
-    
-    print "Got '$got' (" . length ($got) . " chars)\n";
+    $got = Net::SSLeay::ssl_read_all($ssl) or die "$$: ssl read failed";
+    print "sslecho $$: got " . length($got) . " bytes\n" if $trace==2;
+    print "sslecho: Got `$got' (" . length ($got) . " chars)\n" if $trace>2;
     $got = uc $got;
+    Net::SSLeay::ssl_write_all($ssl, $got) or die "$$: ssl write failed";
+    $got = '';  # in case it was huge
     
-    Net::SSLeay::write ($ssl, $got) or die "write: $!";
-    Net::SSLeay::print_errs();    
-    
-    print "Tearing down the connection.\n";
+    print "sslecho: Tearing down the connection.\n\n" if $trace>1;
     
     Net::SSLeay::free ($ssl);
     close NS;
