@@ -41,6 +41,7 @@
  *	      --Sampo
  * 18.2.2003, RAND patch from Toni Andjelkovic <toni@soth._at>
  * 13.6.2003, applied SSL_X509_LOOKUP patch by Marian Jancar <mjancar@suse._cz>
+ * 18.8.2003, fixed some const char pointer warnings --Sampo
  *
  * $Id: SSLeay.xs,v 1.14 2003/06/13 21:14:40 sampo Exp $
  * 
@@ -2041,19 +2042,19 @@ SSL_CTX_use_certificate_file(ctx,file,type)
      char *             file
      int                type
 
-char *
+const char *
 SSL_state_string(s)
      SSL *              s
 
-char *
+const char *
 SSL_rstate_string(s)
      SSL *              s
 
-char *
+const char *
 SSL_state_string_long(s)
      SSL *              s
 
-char *
+const char *
 SSL_rstate_string_long(s)
      SSL *              s
 
@@ -2704,19 +2705,19 @@ SSL_add_client_CA(ssl,x)
      SSL *	ssl
      X509 *	x
 
-char *
+const char *
 SSL_alert_desc_string(value)
      int 	value
 
-char *
+const char *
 SSL_alert_desc_string_long(value)
      int 	value
 
-char *
+const char *
 SSL_alert_type_string(value)
      int 	value
 
-char *
+const char *
 SSL_alert_type_string_long(value)
      int 	value
 

@@ -16,6 +16,8 @@ RECIPE.Win32
 examples/minicli.pl
 examples/sslecho.pl
 examples/sslcat.pl
+examples/tcpecho.pl
+examples/tcpcat.pl
 examples/ssl-inetd-serv.pl
 examples/callback.pl
 examples/bulk.pl

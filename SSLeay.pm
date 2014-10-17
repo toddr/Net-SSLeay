@@ -42,6 +42,7 @@
 # 25.6.2003, write_partial() return value patch from 
 #            Kim Minh Kaplan <kmkaplan@selfoffice._com>
 # 17.8.2003, added http support :-) --Sampo
+# 17.8.2003, started 1.25 dev --Sampo
 #
 # The distribution and use of this module are subject to the conditions
 # listed in LICENSE file at the root of OpenSSL-0.9.7b
@@ -68,15 +69,15 @@ $Net::SSLeay::trace = 0;  # Do not change here, use
 # 10 = insist on TLSv1
 # 0 or undef = guess (v23)
 #
-$Net::SSLeay::ssl_version = 0;
+$Net::SSLeay::ssl_version = 0;  # don't change here, use 
+                                # Net::SSLeay::version=[2,3,0] in caller
 
 #define to enable the "cat /proc/$$/stat" stuff
 $Net::SSLeay::linux_debug = 0;
 
 # Number of seconds to sleep after sending message and before half
 # closing connection. Useful with antiquated broken servers.
-$Net::SSLeay::slowly = 0;  # don't change here, use 
-                           # Net::SSLeay::version=[2,3,0] in caller
+$Net::SSLeay::slowly = 0;
 
 # RANDOM NUMBER INITIALIZATION
 #
@@ -97,7 +98,7 @@ $Net::SSLeay::slowly = 0;  # don't change here, use
 $Net::SSLeay::random_device = '/dev/urandom';
 $Net::SSLeay::how_random = 512;
 
-$VERSION = '1.24';
+$VERSION = '1.25';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -428,6 +429,7 @@ $VERSION = '1.24';
 	get_httpx4
         post_httpx4
         tcpcat
+        tcpxcat
 	tcp_read_CRLF
 	tcp_read_all
 	tcp_read_until
@@ -1658,7 +1660,7 @@ sub tcp_write_all {
     my ($wrote, $written, $to_write) = (0,0, blength($$data_ref));
     my $vm = $trace>2 && $linux_debug ?
 	(split ' ', `cat /proc/$$/stat`)[22] : 'vm_unknown';
-    warn "  write_all VM at entry=$vm\n" if $trace>2;
+    warn "  write_all VM at entry=$vm to_write=$to_write\n" if $trace>2;
     while ($to_write) {
 	warn "partial `$$data_ref'\n" if $trace>3;
 	$wrote = syswrite(SSLCAT_S, $$data_ref, $to_write, $written);
@@ -2107,11 +2109,11 @@ sub http_cat { # address, port, message --> returns reply / (reply,errs,cert)
 	if $trace==3;
     warn "http_cat $$: sending `$out_message' (" . blength($out_message)
 	. " bytes)...\n" if $trace>3;
-    ($written, $errs) = tcp_write_all($ssl, $out_message);
+    ($written, $errs) = tcp_write_all($out_message);
     goto cleanup unless $written;
     
     warn "waiting for reply...\n" if $trace>2;
-    ($got, $errs) = tcp_read_all($ssl);
+    ($got, $errs) = tcp_read_all(200000);
     warn "Got " . blength($got) . " bytes.\n" if $trace==3;
     warn "Got `$got' (" . blength($got) . " bytes)\n" if $trace>3;
 
@@ -2122,6 +2124,7 @@ cleanup:
 
 sub httpx_cat {
     my ($usessl, $site, $port, $req, $crt_path, $key_path) = @_;
+    warn "httpx_cat: usessl=$usessl ($site:$port)" if $trace;
     if ($usessl) {
 	return https_cat($site, $port, $req, $crt_path, $key_path);
     } else {
@@ -2189,7 +2192,7 @@ sub make_headers {
 }
 
 sub do_httpx3 {
-    my ($usessl, $method, $site, $port, $path, $headers,
+    my ($method, $usessl, $site, $port, $path, $headers,
 	$content, $mime_type, $crt_path, $key_path) = @_;
     my ($response, $page, $h,$v);
 
@@ -2204,12 +2207,14 @@ sub do_httpx3 {
     my $req = "$method $path HTTP/1.0$CRLF"."Host: $site:$port$CRLF"
       . (defined $headers ? $headers : '') . "Accept: */*$CRLF$content";    
 
+    warn "do_httpx3($method,$usessl,$site:$port)" if $trace;
     my ($http, $errs, $server_cert)
 	= httpx_cat($usessl, $site, $port, $req, $crt_path, $key_path);
     return (undef, "HTTP/1.0 900 NET OR SSL ERROR$CRLF$CRLF$errs") if $errs;
     
     $http = '' if !defined $http;
     ($headers, $page) = split /\s?\n\s?\n/, $http, 2;
+    warn "headers >$headers< page >>$page<< http >>>$http<<<" if $trace>1;
     ($response, $headers) = split /\s?\n/, $headers, 2;
     return ($page, $response, $headers, $server_cert);
 }

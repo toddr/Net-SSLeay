@@ -177,3 +177,9 @@ Revision history for Perl extension Net::SSLeay.
       17.8.2003
 	- new features: http and raw tcp support
 	- fixed apparent STDIO vs. sysread bug in proxy connect
+1.25  18.8.2003
+        - added tcpecho.pl and tcpcat.pl to MANIFEST
+        - fixed some further bugs with TCP read all, etc.
+        - fixed some const char pointer warnings
+
+#EOF
