@@ -1,4 +1,4 @@
-# $Id: Handle.pm,v 1.3 2001/12/15 01:58:29 sampo Exp $
+# $Id: Handle.pm,v 1.4 2001/12/17 21:12:44 sampo Exp $
 
 package Net::SSLeay::Handle;
 
@@ -138,7 +138,7 @@ sub make_socket {
 	connect($socket, $host_params)              or die "connect: $!";
 	my $old_select = select($socket); $| = 1; select($old_select);
 	
-	print $socket "CONNECT $host:$port HTTP/1.0$Net::SSLeay::proxyauth$$Net::SSLeay::CRLF$$Net::SSLeay::CRLF";
+	print $socket "CONNECT $host:$port HTTP/1.0$Net::SSLeay::proxyauth$Net::SSLeay::CRLF$Net::SSLeay::CRLF";
 	my $line = <$socket>;
 	return $socket;
 

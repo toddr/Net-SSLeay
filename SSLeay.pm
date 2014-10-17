@@ -13,7 +13,7 @@
 # 6.11.2001, got rid of $p_errs madness --Sampo
 # 9.11.2001, added EGD (entropy gathering daemon) reference info --Sampo
 # 7.12.2001, Added proxy support by Bruno De Wolf <bruno.dewolf@@pandora._be>
-# $Id: SSLeay.pm,v 1.7 2001/12/15 01:58:50 sampo Exp $
+# $Id: SSLeay.pm,v 1.8 2001/12/17 21:13:42 sampo Exp $
 #
 # The distribution and use of this module are subject to the conditions
 # listed in LICENSE file at the root of OpenSSL-0.9.6a
@@ -69,7 +69,7 @@ $Net::SSLeay::slowly = 0;  # don't change here, use
 $Net::SSLeay::random_device = '/dev/urandom';
 $Net::SSLeay::how_random = 512;
 
-$VERSION = '1.11';
+$VERSION = '1.12';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION

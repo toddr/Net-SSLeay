@@ -1,6 +1,6 @@
 # Original by Jim Bowlin <jbowlin@linklint.org>
 # Maintenance fixes by Sampo Kellomaki <sampo@iki.fi>
-# $Id: test.pl,v 1.3 2001/12/08 17:43:13 sampo Exp $
+# $Id: test.pl,v 1.4 2001/12/17 21:25:44 sampo Exp $
 #
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl test.pl'
@@ -73,6 +73,8 @@ sub read_home_page {
     print $socket "GET / HTTP/1.0\r\n\r\n";
     #shutdown($socket, 1);
     my $head_cnt = 0;
+    my $resp = <$socket>;
+    #print $resp;
     while (<$socket>) {
         /\S/ or last;
         $head_cnt++;
@@ -82,7 +84,7 @@ sub read_home_page {
     $doc_cnt++ while (<$socket>);
     printf "%d document lines\n", $doc_cnt;
     $close and close $socket;
-    return $head_cnt && $doc_cnt ? 1 : 0;
+    return ($resp =~ m|^HTTP/1|) ? 1 : 0;
 }                                                  
 
 #== Test 3 ====================================================================
