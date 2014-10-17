@@ -19,3 +19,6 @@ Revision history for Perl extension Net::SSLeay.
 	- changed build instructions to build outside perl source tree
 	- added random number initialization using /dev/urandom (if available)
 	- made ssl_write_all accept references, this is more memory efficient
+1.02  8.7.1998, Sampo Kellomaki <sampo@iki.fi>
+	- Added SSL_(CTX)?_set_options and associated constants
+	- Slight clean-ups

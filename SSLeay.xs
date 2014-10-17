@@ -6,6 +6,7 @@
  * 19.6.1998, Maintenance release to sync with SSLeay-0.9.0, --Sampo
  * 24.6.1998, added write_partial to support ssl_write_all in more
  *            memory efficient way. --Sampo
+ * 8.7.1998,  Added SSL_(CTX)?_set_options and associated constants.
  * 
  * The distribution and use of this module are subject to the conditions
  * listed in COPYRIGHT file at the root of Eric Young's SSLeay-0.9.0
@@ -583,7 +584,109 @@ int arg;
 #endif
 	break;
     case 'O':
-	break;
+	if (strEQ(name, "OP_MICROSOFT_SESS_ID_BUG"))
+#ifdef SSL_OP_MICROSOFT_SESS_ID_BUG
+	    return SSL_OP_MICROSOFT_SESS_ID_BUG;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "OP_NETSCAPE_CHALLENGE_BUG"))
+#ifdef SSL_OP_NETSCAPE_CHALLENGE_BUG
+	    return SSL_OP_NETSCAPE_CHALLENGE_BUG;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG"))
+#ifdef SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG
+	    return SSL_OP_NETSCAPE_REUSE_CIPHER_CHANGE_BUG;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "OP_SSLREF2_REUSE_CERT_TYPE_BUG"))
+#ifdef SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG
+	    return SSL_OP_SSLREF2_REUSE_CERT_TYPE_BUG;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "OP_MICROSOFT_BIG_SSLV3_BUFFER"))
+#ifdef SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER
+	    return SSL_OP_MICROSOFT_BIG_SSLV3_BUFFER;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "OP_MSIE_SSLV2_RSA_PADDING"))
+#ifdef SSL_OP_MSIE_SSLV2_RSA_PADDING
+	    return SSL_OP_MSIE_SSLV2_RSA_PADDING;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "OP_SSLEAY_080_CLIENT_DH_BUG"))
+#ifdef SSL_OP_SSLEAY_080_CLIENT_DH_BUG
+	    return SSL_OP_SSLEAY_080_CLIENT_DH_BUG;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "OP_TLS_D5_BUG"))
+#ifdef SSL_OP_TLS_D5_BUG
+	    return SSL_OP_TLS_D5_BUG;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "OP_SINGLE_DH_USE"))
+#ifdef SSL_OP_SINGLE_DH_USE
+	    return SSL_OP_SINGLE_DH_USE;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "OP_EPHEMERAL_RSA"))
+#ifdef SSL_OP_EPHEMERAL_RSA
+	    return SSL_OP_EPHEMERAL_RSA;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "OP_NETSCAPE_CA_DN_BUG"))
+#ifdef SSL_OP_NETSCAPE_CA_DN_BUG
+	    return SSL_OP_NETSCAPE_CA_DN_BUG;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "OP_NON_EXPORT_FIRST"))
+#ifdef SSL_OP_NON_EXPORT_FIRST
+	    return SSL_OP_NON_EXPORT_FIRST;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG"))
+#ifdef SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG
+	    return SSL_OP_NETSCAPE_DEMO_CIPHER_CHANGE_BUG;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "OP_NO_SSLv2"))
+#ifdef SSL_OP_NO_SSLv2
+	    return SSL_OP_NO_SSLv2;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "OP_NO_SSLv3"))
+#ifdef SSL_OP_NO_SSLv3
+	    return SSL_OP_NO_SSLv3;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "OP_NO_TLSv1"))
+#ifdef SSL_OP_NO_TLSv1
+	    return SSL_OP_NO_TLSv1;
+#else
+	    goto not_there;
+#endif
+	if (strEQ(name, "OP_ALL"))
+#ifdef SSL_OP_ALL
+	    return SSL_OP_ALL;
+#else
+	    goto not_there;
+#endif
+
     case 'P':
 	if (strEQ(name, "PE_BAD_CERTIFICATE"))
 #ifdef SSL_PE_BAD_CERTIFICATE
@@ -1865,6 +1968,20 @@ SSL_get_SSL_CTX(s)
      RETVAL = (s == NULL) ? NULL : s -> ctx;
      OUTPUT:
      RETVAL
+
+void
+SSL_set_options(ssl,op)
+     SSL *          ssl
+     unsigned long  op
+     CODE:
+     SSL_set_options(ssl,op);
+
+void
+SSL_CTX_set_options(ctx,op)
+     SSL_CTX *      ctx
+     unsigned long  op
+     CODE:
+     SSL_CTX_set_options(ctx,op);
 
 LHASH *
 SSL_CTX_sessions(ctx)

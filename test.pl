@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# 24.6.1998, Sampo Kellomaki <sampo@iki.fi>
+# 24.6.1998, 8.7.1998, Sampo Kellomaki <sampo@iki.fi>
 #
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl test.pl'
@@ -9,7 +9,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN {print "1..11\n";}
+BEGIN {print "1..12\n";}
 END {print "not ok 1\n" unless $loaded;}
 use Net::SSLeay qw(die_now die_if_ssl_error);
 $loaded = 1;
@@ -18,7 +18,7 @@ print "ok 1\n";
 ######################### End of black magic.
 
 $trace = 1;  # 0=silent, 1=verbose, 2=debugging
-$mb = 5;     # size of the bulk tests
+$mb = 1;     # size of the bulk tests
 $errors = 0;
 $silent = $trace>1 ? '' : '>/dev/null 2>/dev/null';
 
@@ -111,9 +111,12 @@ sub test_site {
     print &test("$test_nro $site", scalar($r =~ /^HTTP\/1/s));
 }
 
-&test_site(9,  "www.cryptsoft.com");
-&test_site(10, "www.cdw.com");
-&test_site(11, "transact.netscape.com");
+&test_site(9,  "www.cryptsoft.com");       # Apache + SSLeay
+&test_site(10, "www.cdw.com");             # Some IIS
+&test_site(11, "transact.netscape.com");   # Modern NS server
+
+$Net::SSLeay::slowly = 1;                  # This server is a bit broken
+&test_site(12, "banking.wellsfargo.com");  # NS 1.12 commerce server
 
 die "*** WARNING: There were $errors errors in the tests.\n" if $errors;
 print "All tests completed OK.\n" if $trace;

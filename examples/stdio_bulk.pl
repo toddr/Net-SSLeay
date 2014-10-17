@@ -15,8 +15,8 @@ Net::SSLeay::SSLeay_add_ssl_algorithms();
 $ctx = Net::SSLeay::CTX_new() or die_now("Failed to create SSL_CTX $!");
 Net::SSLeay::set_server_cert_and_key($ctx, $cert_pem, $key_pem) or die "key";
 
-pipe RS, WC or die "pipe 1";
-pipe RC, WS or die "pipe 2";
+pipe RS, WC or die "pipe 1 ($!)";
+pipe RC, WS or die "pipe 2 ($!)";
 select WC; $| = 1;
 select WS; $| = 1;
 select STDOUT;

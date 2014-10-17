@@ -1,7 +1,8 @@
 README - Net::SSLeay Perl module for using Eric Young's implementation of SSL
 
-24.6.1998, Sampo Kellomaki <sampo@iki.fi>
-Version 1.01
+8.7.1998, Sampo Kellomaki <sampo@iki.fi>
+Version: 1.02 
+New: added CTX_set_options($ctx, &OP_ALL) to deal with broken servers
 
 Note: This module is _the_ `Net::SSLeay' namespace. Eric Young is
 working on another module, which comes in the perl sub directory of
@@ -28,16 +29,22 @@ SSLeay-0.9.0  - nothing earlier works and I do not guarantee that anything
 Installing
 ----------
 
-	gunzip <Net_SSLeay.pm-1.01.tar.gz | tar xvf -
+	gunzip <Net_SSLeay.pm-1.02.tar.gz | tar xvf -
 	cd Net_SSLeay.pm-1.01
 	./Makefile.PL -t     # builds and tests it
 	make install         # You probably have to be root to do this
-	perldoc Net::SSLeay  # optional
+	perldoc Net::SSLeay  # optional, but highly recommended
 
 You should also be able to use CPAN.pm to install this module if you like.
 
 Problems
 --------
+
+"Random number generator not seeded!!!" This warning indicates that
+  randomize() was not able to read /dev/random or /dev/urandom, possibly
+  because your system does not have them or they are differently
+  named. You can still use SSL, but the encryption will not be as
+  strong.
 
 Did you read the POD documentation (if you don't know what that
 is, just say `perldoc Net::SSLeay' or `more SSLeay.pm')?

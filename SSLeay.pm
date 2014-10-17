@@ -1,7 +1,7 @@
 # Net::SSLeay.pm - Perl module for using Eric Young's implementation of SSL
 #
 # Copyright (c) 1996,1998 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
-# Version 1.01, 19.6.1998
+# Version 1.02, 8.7.1998
 #
 # The distribution and use of this module are subject to the conditions
 # listed in COPYRIGHT file at the root of Eric Young's SSLeay-0.9.0
@@ -10,12 +10,17 @@
 package Net::SSLeay;
 
 $trace = 0;  # 0=only errors, 1=ciphers, 2=progress, 3=dump data
+#$ssl_version = 3;  # 2 = insist on v2 SSL protocol, 3 = insist on v3 SSL
+                   # undef = guess (v23)
+$slowly = 0; # Number of seconds to sleep after sending message and before
+             # half closing connection. Useful with antiquated broken
+             # servers.
 
 # RANDOM NUMBER INITIALIZATION
 #
 # Edit to your taste. Using /dev/random would be more secure, but may
 # block if randomness is not available, thus the default is
-# /dev/urandom. $how_random determines many bits of randomness to take
+# /dev/urandom. $how_random determines how many bits of randomness to take
 # from the device. You should take enough (read SSLeay/doc/rand), but
 # beware that randomness is limited resource so you should not waste
 # it either or you may end up with randomness depletion (situation where
@@ -34,7 +39,7 @@ require Exporter;
 require DynaLoader;
 require AutoLoader;
 
-$VERSION = '1.01';
+$VERSION = '1.02';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -463,7 +468,8 @@ To be used with Low level API
 randomize() seeds the eay PRNG with /dev/urandom (see top of SSLeay.pm
 for how to change or configure this) and optionally with user provided
 data. It is very important to properly seed your random numbers, so
-don't forget to call this.
+don't forget to call this. The high level API functions automatically
+call randomize() so it is not needed with them.
 
 set_server_cert_and_key() takes two file names as arguments and sets
 the server certificate and private key to those.
@@ -532,6 +538,7 @@ the following encantation (this changed from previous version):
 	use Net::SSLeay qw(die_now die_if_ssl_error);
 	Net::SSLeay::load_error_strings();
 	Net::SSLeay::SSLeay_add_ssl_algorithms();   # Important!
+        Net::SSLeay::randomize();
 
 die_now() and die_if_ssl_error() are used to conveniently print SSLeay error
 stack when something goes wrong, thusly:
@@ -653,6 +660,8 @@ Following is a simple SSLeay client (with too little error checking :-(
     # The network connection is now open, lets fire up SSL    
 
     $ctx = Net::SSLeay::CTX_new() or die_now("Failed to create SSL_CTX $!");
+    Net::SSLeay::CTX_set_options($ctx, &Net::SSLeay::OP_ALL)
+         and die_if_ssl_error("ssl ctx set options");
     $ssl = Net::SSLeay::new($ctx) or die_now("Failed to create SSL $!");
     Net::SSLeay::set_fd($ssl, fileno(S));   # Must use fileno
     $res = Net::SSLeay::connect($ssl) and die_if_ssl_error("ssl connect");
@@ -678,6 +687,7 @@ Following is a simple SSLeay echo server (non forking):
     use Net::SSLeay qw(die_now die_if_ssl_error);
     Net::SSLeay::load_error_strings();
     Net::SSLeay::SSLeay_add_ssl_algorithms();
+    Net::SSLeay::randomize();
  
     $our_ip = "\0\0\0\0"; # Bind to all interfaces
     $port = 1235;							 
@@ -688,6 +698,8 @@ Following is a simple SSLeay echo server (non forking):
     bind (S, $our_serv_params)             or die "bind:   $!";
     listen (S, 5)                          or die "listen: $!";
     $ctx = Net::SSLeay::CTX_new ()         or die_now("CTX_new ($ctx): $!");
+    Net::SSLeay::CTX_set_options($ctx, &Net::SSLeay::OP_ALL)
+         and die_if_ssl_error("ssl ctx set options");
 
     # Following will ask password unless private key is not encrypted
     Net::SSLeay::CTX_use_RSAPrivateKey_file ($ctx, 'plain-rsa.pem',
@@ -743,6 +755,7 @@ to ask for the password. Note how STDIN and STDOUT are wired to SSL.
     use Net::SSLeay qw(die_now die_if_ssl_error);
     Net::SSLeay::load_error_strings();
     Net::SSLeay::SSLeay_add_ssl_algorithms();
+    Net::SSLeay::randomize();
 
     chdir '/key/dir' or die "chdir: $!";
     $| = 1;  # Piping hot!
@@ -751,6 +764,8 @@ to ask for the password. Note how STDIN and STDOUT are wired to SSL.
     
     $ctx = Net::SSLeay::CTX_new()     or die_now "CTX_new ($ctx) ($!)";
     $ssl = Net::SSLeay::new($ctx)     or die_now "new ($ssl) ($!)";
+    Net::SSLeay::set_options($ssl, &Net::SSLeay::OP_ALL)
+         and die_if_ssl_error("ssl set options");
 
     # We get already open network connection from inetd, now we just
     # need to attach SSLeay to STDIN and STDOUT
@@ -820,11 +835,11 @@ Or alternatively you can just use the following convinence functions:
     Net::SSLeay::ssl_write_all($ssl, $message) or die "ssl write failure";
     $got = Net::SSLeay::ssl_read_all($ssl) or die "ssl read failure";
 
-=head1 KNOWN BUGS
+=head1 KNOWN BUGS AND CAVEATS
 
 Autoloader emits `Argument "xxx" isn't numeric in entersub at
 blib/lib/Net/SSLeay.pm' warning if die_if_ssl_error is made
-autoloadable.
+autoloadable. If you figure out why, drop me a line.
 
 Callback set using SSL_set_verify() does not appear to work. This may
 well be eay problem (e.g. see ssl/ssl_lib.c line 1029). Try using
@@ -833,11 +848,54 @@ working in future versions.
 
 Callback and certificate verification stuff is generally too little tested.
 
-Random numbers are not initialized randomly enough.
+Random numbers are not initialized randomly enough, especially if you
+do not have /dev/random and/or /dev/urandom.
+
+If you are using the low level API functions to communicate with other
+SSL implementations, you'd do well to call
+
+    Net::SSLeay::CTX_set_options($ctx, &Net::SSLeay::OP_ALL)
+         and die_if_ssl_error("ssl ctx set options");
+
+to cope with some well know bugs in some implementations. The high level
+API functions always set all known compatibility options.
+
+Sometimes sslcat (and the high level https functions that build on it)
+is too fast in signaling the EOF to legacy https servers. This causes
+the server to return empty page. To work around this problem you can
+set global variable
+
+    $Net::SSLeay::slowly = 1;   # Add sleep so broken servers can keep up
+
+=head1 DIAGNOSTICS
+
+"Random number generator not seeded!!!"
+  This warning indicates that randomize() was not able to read
+  /dev/random or /dev/urandom, possibly because your system does not
+  have them or they are differently named. You can still use SSL, but
+  the encryption will not be as strong.
+
+"open_tcp_connection: destination host not found:`server' (port 123) ($!)"
+  Name lookup for host named `server' failed.
+
+"open_tcp_connection: failed `server', 123 ($!)"
+  The name was resolved, but establising the TCP connection failed.
+
+"msg 123: 1 - error:140770F8:SSL routines:SSL23_GET_SERVER_HELLO:unknown proto"
+  SSLeay error string. First (123) number is PID, second number (1) indicates
+  the position of the error message in SSLeay error stack. You often see
+  a pile of these messages as errors cascade.
+
+"msg 123: 1 - error:02001002::lib(2) :func(1) :reason(2)"
+  The same as above, but you didn't call load_error_strings() so SSLeay
+  couldn't verbosely explain the error. You can still find out what it
+  means with this command:
+
+     /usr/local/ssl/bin/ssleay errstr 02001002
 
 =head1 VERSION
 
-This man page documents version 1.01, released on 24.6.1998. This version
+This man page documents version 1.02, released on 8.7.1998. This version
 had some API changes over 0.04 so I incremented the major version. Old
 scripts should work still with following minor modifications:
 	
@@ -899,7 +957,7 @@ backdoors, and general suitability for your application.
 
 =cut
 
-# `;
+# ';
 
 ###
 ### Open TCP stream to given host and port, looking up the details
@@ -1020,12 +1078,19 @@ sub sslcat { # address, port, message --> returns reply
 	    
     ### Do SSL negotiation stuff
 	    
-    warn "Creating SSL context...\n" if $trace>1;
+    warn "Creating SSL $ssl_version context...\n" if $trace>1;
     load_error_strings();         # Some bloat, but I'm after ease of use
     SSLeay_add_ssl_algorithms();  # and debuggability.
     randomize('/etc/passwd');
-    $ctx = CTX_new();
+
+    if    ($ssl_version == 2) { $ctx = CTX_v2_new(); }
+    elsif ($ssl_version == 3) { $ctx = CTX_v3_new(); }
+    else                      { $ctx = CTX_new(); }
+
     goto cleanup2 if print_errs('CTX_new') or !$ctx;
+
+    CTX_set_options($ctx, &OP_ALL);
+    goto cleanup2 if print_errs('CTX_set_options');
     
     warn "Creating SSL connection (context was '$ctx')...\n" if $trace>1;
     $ssl = new($ctx);
@@ -1055,6 +1120,7 @@ sub sslcat { # address, port, message --> returns reply
 	. " bytes)...\n" if $trace>2;
     ssl_write_all($ssl, $out_message) or goto cleanup;
     
+    sleep $slowly if $slowly;  # Closing too soon can abort broken servers
     shutdown SSLCAT_S, 1;  # Half close --> No more output, send EOF to server
     
     warn "waiting for reply...\n" if $trace>1;
