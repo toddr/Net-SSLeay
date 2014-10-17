@@ -3,6 +3,8 @@
 # 31.7.1999, added more tests --Sampo
 # 7.4.2001,  upgraded to OpenSSL-0.9.6a --Sampo
 # 25.4.2001, added test for 64 bit pointer cast by aspa --Sampo
+# 20.8.2001, moved checking which perl to use higher up. Thanks
+#            Gordon Lack <gml4410@ggr.co.uk> --Sampo
 #
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl test.pl'
@@ -37,6 +39,11 @@ sub test {
     return $test ? "ok $num\n" : "*** not ok $num\n\n"
 }
 
+my $inc = join ' ', map("-I$_", @INC);
+#$perl = "perl $inc";
+my $perl = "$Config{perlpath} $inc";
+print "Using perl at `$perl'\n" if $trace>1;
+
 ### Pointer casting test for 64 bit architectures
 
 print "Testing pointer to int casting...\n";
@@ -45,11 +52,6 @@ system "$perl ptrtstrun.pl";
 &Net::SSLeay::load_error_strings();
 &Net::SSLeay::SSLeay_add_ssl_algorithms();
 print &test(2, &Net::SSLeay::hello == 1);
-
-my $inc = join ' ', map("-I$_", @INC);
-#$perl = "perl $inc";
-my $perl = "$Config{perlpath} $inc";
-print "Using perl at `$perl'\n" if $trace>1;
 
 my $cert_pem = "examples/cert.pem";
 my $key_pem =  "examples/key.pem";

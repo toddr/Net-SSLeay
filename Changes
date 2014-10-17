@@ -101,3 +101,12 @@ Revision history for Perl extension Net::SSLeay.
 	  <eselber@briefcase.com>
 	- bumped OpenSSL version requirement to 0.9.6b and tested
 	- merged in Net::SSLeay::Handle by Jim Bowlin <jbowlin@linklint.org>
+1.09  20.8.2001,
+	- fixed Makefile.PL (computation of bin_path) and test.pl ($perl
+	  use before defined) per Gordon Lack <gml4410@ggr.co.uk>
+      11.9.2001,
+	- Patch by Jeremy Mates <jmates@mbt.washington.edu> to make Handle.pm
+	  more acceptable for older perls
+      25.9.2001,
+	- systematically implemented many of the newer functions of
+	  openssl API (per popular request and for completeness)

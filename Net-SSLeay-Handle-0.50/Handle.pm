@@ -1,6 +1,6 @@
 package Net::SSLeay::Handle;
 
-require 5.005_62;
+require 5.005_03;
 use strict;
 use warnings;
 
@@ -9,11 +9,10 @@ use Net::SSLeay;
 
 require Exporter;
 
-our @ISA = qw(Exporter);
-
-our @EXPORT_OK = qw(shutdown);
-
-our $VERSION = '0.50';
+use vars qw(@ISA @EXPORT_OK $VERSION);
+@ISA = qw(Exporter);
+@EXPORT_OK = qw(shutdown);
+$VERSION = '0.51';
 
 #=== Class Variables ==========================================================
 #
@@ -276,6 +275,9 @@ glob, I got a core dump.
 
 I was able to associate attributes to globs created by this module
 (like *SSL above) by making a hash of hashes keyed by the file head1.
+
+Support for old perls may not be 100%. If in trouble try 5.6.0 or
+newer.
 
 =head1 AUTHOR
 

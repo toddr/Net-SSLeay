@@ -9,6 +9,8 @@
 #            <koehler@securecomputing.com>, version 1.07, --Sampo
 # 25.4.2001, 64 bit fixes by Marko Asplund <aspa@kronodoc.fi> --Sampo
 # 17.4.2001, more error codes from aspa --Sampo
+# 25.9.2001, added heaps and piles of newer OpenSSL auxiliary functions --Sampo
+# $Id: SSLeay.pm,v 1.3 2001/09/25 19:37:03 sampo Exp $
 #
 # The distribution and use of this module are subject to the conditions
 # listed in LICENSE file at the root of OpenSSL-0.9.6a
@@ -63,7 +65,7 @@ $Net::SSLeay::slowly = 0;  # don't change here, use
 $Net::SSLeay::random_device = '/dev/urandom';
 $Net::SSLeay::how_random = 512;
 
-$VERSION = '1.08';
+$VERSION = '1.09';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -984,6 +986,13 @@ issue or serve multiple http requests per connection. This is a serious
 short coming, but using SSL session cache on your server helps to
 alleviate the CPU load somewhat.
 
+As of version 1.09 many newer OpenSSL auxiliary functions were
+added (from REM_AUTOMATICALLY_GENERATED_1_09 onwards in SSLeay.xs).
+Unfortunately I have not had any opportunity to test these. Some of
+them are trivial enough that I believe they "just work", but others
+have rather complex interfaces with function pointers and all. In these
+cases you should proceed wit great caution.
+
 =head1 DIAGNOSTICS
 
 "Random number generator not seeded!!!"
@@ -1012,7 +1021,7 @@ alleviate the CPU load somewhat.
 
 =head1 VERSION
 
-This man page documents version 1.08, released on 17.7.2001.
+This man page documents version 1.09, released on 25.9.2001.
 
 There are currently two perl modules for using OpenSSL C
 library: Net::SSLeay (maintaned by me) and SSLeay (maintained by OpenSSL
@@ -1073,6 +1082,13 @@ backdoors, and general suitability for your application.
 =cut
 
 # ';
+
+### Some methods that are macros in C
+
+sub want_nothing { want(shift) == 1 }
+sub want_read { want(shift) == 2 }
+sub want_write { want(shift) == 3 }
+sub want_X509_lookup { want(shift) == 4 }
 
 ###
 ### Open TCP stream to given host and port, looking up the details

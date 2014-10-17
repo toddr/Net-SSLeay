@@ -5,6 +5,7 @@
 # 15.4.2001, fixed little bug in ssl directory detection --Sampo
 # 18.7.2001, fixed numerous issues reported by Eric A Selber
 #	     <eselber@briefcase.com> that made Windows builds painful --Sampo
+# 20.8.2001, tweaked path editing, thanks Gordon Lack <gml4410@ggr.co.uk> --Sampo
 #
 # Configuration script for Net::SSLeay.pm
 
@@ -56,7 +57,7 @@ while (1) {
     chomp $openssl_path;
 }
 
-($openssl_bin_path = $exe_path) =~ s%/.*?$%%;
+($openssl_bin_path = $exe_path) =~ s%/openssl(\.exe)?$%%;
 
 $vers = `$exe_path version`
     or die "Couldn't run `$exe_path' ($?)\n";
@@ -95,7 +96,13 @@ if ($windows) {
     warn "RSAREF build on Windows not supported out of box" if $rsaref;
     $libs = "-llibeay32 -lssleay32";
 } else {
-    $libs = $rsaref ? "-lssl -lRSAglue -lcrypto -lrsaref" : "-lssl -lcrypto";
+    ### There is some confusio over the correct ordering
+    ### of these libraries. Tarang Kumar Patel <mombasa@ptolemy.arc.nasa.gov>
+    ### reports this order to work on Solaris 7 and openssl-0.9.6b
+    $libs = $rsaref ? "-lssl -lcrypto -lRSAglue -lrsaref" : "-lssl -lcrypto";
+    
+    ### old order which might work on some platforms
+    #$libs = $rsaref ? "-lssl -lRSAglue -lcrypto -lrsaref" : "-lssl -lcrypto";
 }
 
 use ExtUtils::MakeMaker;

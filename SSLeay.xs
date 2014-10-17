@@ -16,9 +16,12 @@
  * 25.4.2001, applied 64 bit fixes by Marko Asplund <aspa@kronodoc.fi> --Sampo
  * 16.7.2001, applied Win filehandle patch from aspa, added
  *            SSL_*_methods --Sampo
+ * 25.9.2001, added a big pile of methods by automatically grepping and diffing
+ *            openssl headers and my module --Sampo
+ * $Id: SSLeay.xs,v 1.3 2001/09/25 19:37:03 sampo Exp $
  * 
  * The distribution and use of this module are subject to the conditions
- * listed in LICENSE file at the root of OpenSSL-0.9.6a
+ * listed in LICENSE file at the root of OpenSSL-0.9.6b
  * distribution (i.e. free, but mandatory attribution and NO WARRANTY).
 
 Removed, perhaps permanently?
@@ -60,6 +63,7 @@ extern "C" {
 #include <openssl/rand.h>
 #include <openssl/buffer.h>
 #include <openssl/ssl.h>
+#include <openssl/comp.h>    /* openssl-0.9.6a forgets to include this */
 
 /* Debugging output */
 
@@ -1495,6 +1499,15 @@ not_there:
     return 0;
 }
 
+/* ============= typedefs to agument TYPEMAP ============== */
+
+typedef int callback_ret_int();
+typedef void callback_no_ret();
+typedef RSA * cb_ssl_int_int_ret_RSA(SSL * ssl,int is_export, int keylength);
+typedef DH * cb_ssl_int_int_ret_DH(SSL * ssl,int is_export, int keylength);
+
+typedef STACK_OF(X509_NAME) X509_NAME_STACK;
+
 /* ============= callback stuff ============== */
 
 static SV * ssleay_verify_callback = (SV*)NULL;
@@ -2367,5 +2380,680 @@ SSL_set_ssl_method(ssl, method)
 SSL_METHOD *
 SSL_get_ssl_method(ssl)
      SSL *          ssl
+
+#define REM_AUTOMATICALLY_GENERATED_1_09
+
+BIO *
+BIO_new_buffer_ssl_connect(ctx)
+     SSL_CTX *	ctx
+
+BIO *
+BIO_new_ssl(ctx,client)
+     SSL_CTX *	ctx
+     int 	client
+
+BIO *
+BIO_new_ssl_connect(ctx)
+     SSL_CTX *	ctx
+
+int 
+BIO_ssl_copy_session_id(to,from)
+     BIO *	to
+     BIO *	from
+
+void 
+BIO_ssl_shutdown(ssl_bio)
+     BIO *	ssl_bio
+
+int 
+SSL_add_client_CA(ssl,x)
+     SSL *	ssl
+     X509 *	x
+
+char *
+SSL_alert_desc_string(value)
+     int 	value
+
+char *
+SSL_alert_desc_string_long(value)
+     int 	value
+
+char *
+SSL_alert_type_string(value)
+     int 	value
+
+char *
+SSL_alert_type_string_long(value)
+     int 	value
+
+long	
+SSL_callback_ctrl(ssl,i,fp)
+     SSL *  ssl
+     int    i
+     callback_no_ret * fp
+
+int 
+SSL_check_private_key(ctx)
+     SSL *	ctx
+
+char *
+SSL_CIPHER_description(cipher,buf,size)
+     SSL_CIPHER *  cipher
+     char *	buf
+     int 	size
+
+int	
+SSL_CIPHER_get_bits(c,alg_bits)
+     SSL_CIPHER *	c
+     int *	alg_bits
+
+int 
+SSL_COMP_add_compression_method(id,cm)
+     int 	id
+     COMP_METHOD *	cm
+
+int 
+SSL_CTX_add_client_CA(ctx,x)
+     SSL_CTX *	ctx
+     X509 *	x
+
+long	
+SSL_CTX_callback_ctrl(ctx,i,fp)
+     SSL_CTX *  ctx
+     int        i
+     callback_no_ret * fp
+
+int 
+SSL_CTX_check_private_key(ctx)
+     SSL_CTX *	ctx
+
+void *
+SSL_CTX_get_ex_data(ssl,idx)
+     SSL_CTX *	ssl
+     int 	idx
+
+int 
+SSL_CTX_get_quiet_shutdown(ctx)
+     SSL_CTX *	ctx
+
+long 
+SSL_CTX_get_timeout(ctx)
+     SSL_CTX *	ctx
+
+int 
+SSL_CTX_get_verify_depth(ctx)
+     SSL_CTX *	ctx
+
+int 
+SSL_CTX_get_verify_mode(ctx)
+     SSL_CTX *	ctx
+
+void 
+SSL_CTX_set_cert_store(ctx,store)
+     SSL_CTX *     ctx
+     X509_STORE *  store
+
+void 
+SSL_CTX_set_cert_verify_callback(ctx,cb,arg)
+     SSL_CTX *	ctx
+     callback_ret_int *  cb
+     char *	arg
+
+void 
+SSL_CTX_set_client_CA_list(ctx,list)
+     SSL_CTX *	ctx
+     X509_NAME_STACK * list
+
+void 
+SSL_CTX_set_default_passwd_cb(ctx,cb)
+     SSL_CTX *	ctx
+     pem_password_cb *	cb
+
+void 
+SSL_CTX_set_default_passwd_cb_userdata(ctx,u)
+     SSL_CTX *	ctx
+     void *	u
+
+int 
+SSL_CTX_set_ex_data(ssl,idx,data)
+     SSL_CTX *	ssl
+     int 	idx
+     void *	data
+
+int 
+SSL_CTX_set_purpose(s,purpose)
+     SSL_CTX *	s
+     int 	purpose
+
+void 
+SSL_CTX_set_quiet_shutdown(ctx,mode)
+     SSL_CTX *	ctx
+     int 	mode
+
+int 
+SSL_CTX_set_ssl_version(ctx,meth)
+     SSL_CTX *	ctx
+     SSL_METHOD *	meth
+
+long 
+SSL_CTX_set_timeout(ctx,t)
+     SSL_CTX *	ctx
+     long 	t
+
+int 
+SSL_CTX_set_trust(s,trust)
+     SSL_CTX *	s
+     int 	trust
+
+void 
+SSL_CTX_set_verify_depth(ctx,depth)
+     SSL_CTX *	ctx
+     int 	depth
+
+int 
+SSL_CTX_use_certificate(ctx,x)
+     SSL_CTX *	ctx
+     X509 *	x
+
+int	
+SSL_CTX_use_certificate_chain_file(ctx,file)
+     SSL_CTX *	ctx
+     const char * file
+
+int 
+SSL_CTX_use_PrivateKey(ctx,pkey)
+     SSL_CTX *	ctx
+     EVP_PKEY *	pkey
+
+int 
+SSL_CTX_use_RSAPrivateKey(ctx,rsa)
+     SSL_CTX *	ctx
+     RSA *	rsa
+
+int 
+SSL_do_handshake(s)
+     SSL *	s
+
+SSL *
+SSL_dup(ssl)
+     SSL *	ssl
+
+SSL_CIPHER *
+SSL_get_current_cipher(s)
+     SSL *	s
+
+long 
+SSL_get_default_timeout(s)
+     SSL *	s
+
+void *
+SSL_get_ex_data(ssl,idx)
+     SSL *	ssl
+     int 	idx
+
+size_t 
+SSL_get_finished(s,buf,count)
+     SSL *	s
+     void *	buf
+     size_t 	count
+
+size_t 
+SSL_get_peer_finished(s,buf,count)
+     SSL *	s
+     void *	buf
+     size_t 	count
+
+int 
+SSL_get_quiet_shutdown(ssl)
+     SSL *	ssl
+
+int 
+SSL_get_shutdown(ssl)
+     SSL *	ssl
+
+int	
+SSL_get_verify_depth(s)
+     SSL *	s
+
+int	
+SSL_get_verify_mode(s)
+     SSL *	s
+
+long 
+SSL_get_verify_result(ssl)
+     SSL *	ssl
+
+int 
+SSL_library_init()
+
+int 	
+SSL_peek(ssl,buf,num)
+     SSL *	ssl
+     void *	buf
+     int 	num
+
+int 
+SSL_renegotiate(s)
+     SSL *	s
+
+int	
+SSL_SESSION_cmp(a,b)
+     SSL_SESSION *	a
+     SSL_SESSION *	b
+
+void *
+SSL_SESSION_get_ex_data(ss,idx)
+     SSL_SESSION *	ss
+     int 	idx
+
+long	
+SSL_SESSION_get_time(s)
+     SSL_SESSION *	s
+
+long	
+SSL_SESSION_get_timeout(s)
+     SSL_SESSION *	s
+
+int	
+SSL_SESSION_print_fp(fp,ses)
+     FILE *	fp
+     SSL_SESSION *	ses
+
+int 
+SSL_SESSION_set_ex_data(ss,idx,data)
+     SSL_SESSION *	ss
+     int 	idx
+     void *	data
+
+long	
+SSL_SESSION_set_time(s,t)
+     SSL_SESSION *	s
+     long 	t
+
+long	
+SSL_SESSION_set_timeout(s,t)
+     SSL_SESSION *	s
+     long 	t
+
+void 
+SSL_set_accept_state(s)
+     SSL *	s
+
+void 
+SSL_set_client_CA_list(s,list)
+     SSL *	s
+     X509_NAME_STACK *  list
+
+void 
+SSL_set_connect_state(s)
+     SSL *	s
+
+int 
+SSL_set_ex_data(ssl,idx,data)
+     SSL *	ssl
+     int 	idx
+     void *	data
+
+void 
+SSL_set_info_callback(ssl,cb)
+     SSL *	ssl
+     callback_no_ret *  cb
+
+int 
+SSL_set_purpose(s,purpose)
+     SSL *	s
+     int 	purpose
+
+void 
+SSL_set_quiet_shutdown(ssl,mode)
+     SSL *	ssl
+     int 	mode
+
+void 
+SSL_set_shutdown(ssl,mode)
+     SSL *	ssl
+     int 	mode
+
+int 
+SSL_set_trust(s,trust)
+     SSL *	s
+     int 	trust
+
+void
+SSL_set_verify_depth(s,depth)
+     SSL *	s
+     int 	depth
+
+void 
+SSL_set_verify_result(ssl,v)
+     SSL *	ssl
+     long 	v
+
+int 
+SSL_shutdown(s)
+     SSL *	s
+
+int 
+SSL_version(ssl)
+     SSL *	ssl
+
+#define REM_MANUALLY_ADDED_1_09
+
+X509_NAME_STACK *
+SSL_load_client_CA_file(file)
+     const char * file
+
+int	
+SSL_add_file_cert_subjects_to_stack(stackCAs,file)
+     X509_NAME_STACK * stackCAs
+     const char * file
+
+int	
+SSL_add_dir_cert_subjects_to_stack(stackCAs,dir)
+     X509_NAME_STACK * stackCAs
+     const char * dir
+
+int
+SSL_CTX_get_ex_new_index(argl,argp,new_func,dup_func,free_func)
+     long argl
+     void *  argp
+     CRYPTO_EX_new *   new_func
+     CRYPTO_EX_dup *   dup_func
+     CRYPTO_EX_free *  free_func
+
+int
+SSL_CTX_set_session_id_context(ctx,sid_ctx,sid_ctx_len)
+     SSL_CTX *   ctx
+     const unsigned char *   sid_ctx
+     unsigned int sid_ctx_len
+
+int
+SSL_set_session_id_context(ssl,sid_ctx,sid_ctx_len)
+     SSL *   ssl
+     const unsigned char *   sid_ctx
+     unsigned int sid_ctx_len
+
+void
+SSL_CTX_set_tmp_rsa_callback(ctx, cb)
+     SSL_CTX *   ctx
+     cb_ssl_int_int_ret_RSA *   cb
+
+void
+SSL_set_tmp_rsa_callback(ssl, cb)
+     SSL *   ssl
+     cb_ssl_int_int_ret_RSA *  cb
+
+void
+SSL_CTX_set_tmp_dh_callback(ctx, dh)
+     SSL_CTX *   ctx
+     cb_ssl_int_int_ret_DH *  dh
+
+void
+SSL_set_tmp_dh_callback(ssl,dh)
+     SSL *  ssl
+     cb_ssl_int_int_ret_DH *  dh
+
+int
+SSL_get_ex_new_index(argl, argp, new_func, dup_func, free_func)
+     long argl
+     void *   argp
+     CRYPTO_EX_new *  new_func
+     CRYPTO_EX_dup *  dup_func
+     CRYPTO_EX_free * free_func
+
+int
+SSL_SESSION_get_ex_new_index(argl, argp, new_func, dup_func, free_func)
+     long argl
+     void *   argp
+     CRYPTO_EX_new *  new_func
+     CRYPTO_EX_dup *  dup_func
+     CRYPTO_EX_free * free_func
+
+#define REM_SEMIAUTOMATIC_MACRO_GEN_1_09
+
+int 
+OpenSSL_add_ssl_algorithms()
+  CODE:
+  RETVAL = SSL_library_init();
+  OUTPUT:
+  RETVAL
+
+long
+SSL_clear_num_renegotiations(ssl)
+  SSL *  ssl
+  CODE:
+  RETVAL = SSL_ctrl(ssl,SSL_CTRL_CLEAR_NUM_RENEGOTIATIONS,0,NULL);
+  OUTPUT:
+  RETVAL
+
+long	
+SSL_CTX_add_extra_chain_cert(ctx,x509)
+     SSL_CTX *	ctx
+     X509 *     x509
+  CODE:
+  RETVAL = SSL_CTX_ctrl(ctx,SSL_CTRL_EXTRA_CHAIN_CERT,0,(char*)x509);
+  OUTPUT:
+  RETVAL
+
+void *
+SSL_CTX_get_app_data(ctx)
+     SSL_CTX *	ctx
+  CODE:
+  RETVAL = SSL_CTX_get_ex_data(ctx,0);
+  OUTPUT:
+  RETVAL
+
+long	
+SSL_CTX_get_mode(ctx)
+     SSL_CTX *	ctx
+  CODE:
+  RETVAL = SSL_CTX_ctrl(ctx,SSL_CTRL_MODE,0,NULL);
+  OUTPUT:
+  RETVAL
+
+long	
+SSL_CTX_get_read_ahead(ctx)
+     SSL_CTX *	ctx
+  CODE:
+  RETVAL = SSL_CTX_ctrl(ctx,SSL_CTRL_GET_READ_AHEAD,0,NULL);
+  OUTPUT:
+  RETVAL
+
+long	
+SSL_CTX_get_session_cache_mode(ctx)
+     SSL_CTX *	ctx
+  CODE:
+  RETVAL = SSL_CTX_ctrl(ctx,SSL_CTRL_GET_SESS_CACHE_MODE,0,NULL);
+  OUTPUT:
+  RETVAL
+
+long	
+SSL_CTX_need_tmp_RSA(ctx)
+     SSL_CTX *	ctx
+  CODE:
+  RETVAL = SSL_CTX_ctrl(ctx,SSL_CTRL_NEED_TMP_RSA,0,NULL);
+  OUTPUT:
+  RETVAL
+
+int 
+SSL_CTX_set_app_data(ctx,arg)
+     SSL_CTX *	ctx
+     char *	arg
+  CODE:
+  RETVAL = SSL_CTX_set_ex_data(ctx,0,arg);
+  OUTPUT:
+  RETVAL
+
+long	
+SSL_CTX_set_mode(ctx,op)
+     SSL_CTX *	ctx
+     long 	op
+  CODE:
+  RETVAL = SSL_CTX_ctrl(ctx,SSL_CTRL_MODE,op,NULL);
+  OUTPUT:
+  RETVAL
+
+long	
+SSL_CTX_set_read_ahead(ctx,m)
+     SSL_CTX *	ctx
+     long 	m
+  CODE:
+  RETVAL = SSL_CTX_ctrl(ctx,SSL_CTRL_SET_READ_AHEAD,m,NULL);
+  OUTPUT:
+  RETVAL
+
+long	
+SSL_CTX_set_session_cache_mode(ctx,m)
+     SSL_CTX *	ctx
+     long 	m
+  CODE:
+  RETVAL = SSL_CTX_ctrl(ctx,SSL_CTRL_SET_SESS_CACHE_MODE,m,NULL);
+  OUTPUT:
+  RETVAL
+
+long	
+SSL_CTX_set_tmp_dh(ctx,dh)
+     SSL_CTX *	ctx
+     char *	dh
+  CODE:
+  RETVAL = SSL_CTX_ctrl(ctx,SSL_CTRL_SET_TMP_DH,0,(char *)dh);
+  OUTPUT:
+  RETVAL
+
+long	
+SSL_CTX_set_tmp_rsa(ctx,rsa)
+     SSL_CTX *	ctx
+     char *	rsa
+  CODE:
+  RETVAL = SSL_CTX_ctrl(ctx,SSL_CTRL_SET_TMP_RSA,0,(char *)rsa);
+  OUTPUT:
+  RETVAL
+
+void *
+SSL_get_app_data(s)
+     SSL *	s
+  CODE:
+  RETVAL = SSL_get_ex_data(s,0);
+  OUTPUT:
+  RETVAL
+
+int	
+SSL_get_cipher_bits(s,np)
+     SSL *	s
+     int *	np
+  CODE:
+  RETVAL = SSL_CIPHER_get_bits(SSL_get_current_cipher(s),np);
+  OUTPUT:
+  RETVAL
+
+long	
+SSL_get_mode(ssl)
+     SSL *	ssl
+  CODE:
+  RETVAL = SSL_ctrl(ssl,SSL_CTRL_MODE,0,NULL);
+  OUTPUT:
+  RETVAL
+
+int 
+SSL_get_state(ssl)
+     SSL *	ssl
+  CODE:
+  RETVAL = SSL_state(ssl);
+  OUTPUT:
+  RETVAL
+
+long	
+SSL_need_tmp_RSA(ssl)
+     SSL *	ssl
+  CODE:
+  RETVAL = SSL_ctrl(ssl,SSL_CTRL_NEED_TMP_RSA,0,NULL);
+  OUTPUT:
+  RETVAL
+
+long	
+SSL_num_renegotiations(ssl)
+     SSL *	ssl
+  CODE:
+  RETVAL = SSL_ctrl(ssl,SSL_CTRL_GET_NUM_RENEGOTIATIONS,0,NULL);
+  OUTPUT:
+  RETVAL
+
+void *
+SSL_SESSION_get_app_data(ses)
+     SSL_SESSION *	ses
+  CODE:
+  RETVAL = SSL_SESSION_get_ex_data(ses,0);
+  OUTPUT:
+  RETVAL
+
+long	
+SSL_session_reused(ssl)
+     SSL *	ssl
+  CODE:
+  RETVAL = SSL_ctrl(ssl,SSL_CTRL_GET_SESSION_REUSED,0,NULL);
+  OUTPUT:
+  RETVAL
+
+int 
+SSL_SESSION_set_app_data(s,a)
+     SSL_SESSION *	s
+     void *	a
+  CODE:
+  RETVAL = SSL_SESSION_set_ex_data(s,0,(char *)a);
+  OUTPUT:
+  RETVAL
+
+int 
+SSL_set_app_data(s,arg)
+     SSL *	s
+     void *	arg
+  CODE:
+  RETVAL = SSL_set_ex_data(s,0,(char *)arg);
+  OUTPUT:
+  RETVAL
+
+long	
+SSL_set_mode(ssl,op)
+     SSL *	ssl
+     long 	op
+  CODE:
+  RETVAL = SSL_ctrl(ssl,SSL_CTRL_MODE,op,NULL);
+  OUTPUT:
+  RETVAL
+
+int	
+SSL_set_pref_cipher(s,n)
+     SSL *	s
+     const char * n
+  CODE:
+  RETVAL = SSL_set_cipher_list(s,n);
+  OUTPUT:
+  RETVAL
+
+long	
+SSL_set_tmp_dh(ssl,dh)
+     SSL *	ssl
+     char *	dh
+  CODE:
+  RETVAL = SSL_ctrl(ssl,SSL_CTRL_SET_TMP_DH,0,(char *)dh);
+  OUTPUT:
+  RETVAL
+
+long	
+SSL_set_tmp_rsa(ssl,rsa)
+     SSL *	ssl
+     char *	rsa
+  CODE:
+  RETVAL = SSL_ctrl(ssl,SSL_CTRL_SET_TMP_RSA,0,(char *)rsa);
+  OUTPUT:
+  RETVAL
+
+long	
+SSL_total_renegotiations(ssl)
+     SSL *	ssl
+  CODE:
+  RETVAL = SSL_ctrl(ssl,SSL_CTRL_GET_TOTAL_RENEGOTIATIONS,0,NULL);
+  OUTPUT:
+  RETVAL
 
 #define REM_EOF "/* EOF - SSLeay.xs */"
