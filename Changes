@@ -128,3 +128,9 @@ Revision history for Perl extension Net::SSLeay.
 	  work contributed by Marko Asplund.
 	- added peer certificate support to hilevel API, inspired
 	  by mock@@_obscurity.org 
+1.15  3.4.2002
+        - added `use bytes' from Marcus Taylor <marcus@@semantico_.com>
+          This avoids unicode/utf8 (as may appear in some XML docs)
+          from fooling the length comuptations.
+	- Dropped support for perl5.005_03 because I do not have opportunity 
+          to test it. --Sampo

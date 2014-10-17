@@ -134,7 +134,7 @@ sub make_socket {
 	my $dest_ip = gethostbyname($Net::SSLeay::proxyhost);
 	my $host_params = sockaddr_in($Net::SSLeay::proxyport, $dest_ip);
 	my $socket;                                                        # = \*S;
-	socket($socket, AF_INET, SOCK_STREAM, 0)    or die "socket: $!";
+	socket($socket, &PF_INET(), &SOCK_STREAM(), 0)    or die "socket: $!";
 	connect($socket, $host_params)              or die "connect: $!";
 	my $old_select = select($socket); $| = 1; select($old_select);
 	
@@ -148,7 +148,7 @@ sub make_socket {
 	my $dest_ip = gethostbyname($host);
 	my $host_params = sockaddr_in($port, $dest_ip);
 	my $socket;                                                        # = \*S;
-	socket($socket, AF_INET, SOCK_STREAM, 0)    or die "socket: $!";
+	socket($socket, &PF_INET(), &SOCK_STREAM(), 0)    or die "socket: $!";
 	connect($socket, $host_params)              or die "connect: $!";
 	my $old_select = select($socket); $| = 1; select($old_select);
 	return $socket;

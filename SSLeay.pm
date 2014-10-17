@@ -16,10 +16,16 @@
 # 6.1.2002,  cosmetic fix to socket options from Kwindla Hultman Kramer <kwindla@@allafrica_.com>
 # 25.3.2002, added post_https_cert and friends per patch from
 #            mock@@obscurity.ogr, --Sampo
-# $Id: SSLeay.pm,v 1.10 2002/03/25 23:31:51 sampo Exp $
+# 3.4.2002,  added `use bytes' from Marcus Taylor <marcus@@semantico_.com>
+#            This avoids unicode/utf8 (as may appear in some XML docs)
+#            from fooling the length comuptations. Dropped support for
+#            perl5.005_03 because I do not have opportunity to test it. --Sampo
+# 5.4.2002,  improved Unicode gotcha eliminator to support old perls --Sampo
+# 8.4.2002,  added a small line end fix from Petr Dousa (pdousa@@kerio_.com)
+# $Id: SSLeay.pm,v 1.11 2002/04/03 18:09:04 sampo Exp $
 #
 # The distribution and use of this module are subject to the conditions
-# listed in LICENSE file at the root of OpenSSL-0.9.6a
+# listed in LICENSE file at the root of OpenSSL-0.9.6c
 # distribution (i.e. free, but mandatory attribution and NO WARRANTY).
 
 package Net::SSLeay;
@@ -72,7 +78,7 @@ $Net::SSLeay::slowly = 0;  # don't change here, use
 $Net::SSLeay::random_device = '/dev/urandom';
 $Net::SSLeay::how_random = 512;
 
-$VERSION = '1.14';
+$VERSION = '1.15';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -428,6 +434,15 @@ sub die_now {
     die "$$: $msg\n";
 }
 
+# Perl 5.6.* unicode support causes that length() no longer reliably
+# reflects the byte length of a string. This eval is to fix that.
+# Thanks to Sean Burke for the snippet.
+
+BEGIN{ 
+eval 'use bytes; sub blength ($) { length $_[0] }'; 
+$@ and eval '    sub blength ($) { length $_[0] }' ; 
+}
+
 # Autoload methods go after =cut, and are processed by the autosplit program.
 
 1;
@@ -453,7 +468,7 @@ Net::SSLeay - Perl extension for using OpenSSL or SSLeay
   ($page, $result, %headers) =                                   # 2b
          = get_https('www.bacus.pt', 443, '/protected.html',
 	      make_headers(Authorization =>
-			   'Basic ' . MIME::Base64::encode("$user:$pass"))
+			   'Basic ' . MIME::Base64::encode("$user:$pass",''))
 	      );
 
   ($page, $response, %reply_headers)
@@ -608,13 +623,13 @@ the caveat about encrypting private key applies.
   ($page, $result, %headers) =                                   # 2c
          = get_https('www.bacus.pt', 443, '/protected.html',
 	      make_headers(Authorization =>
-			   'Basic ' . MIME::Base64::encode("$user:$pass")),
+			   'Basic ' . MIME::Base64::encode("$user:$pass",'')),
 	      '', $mime_type6, $path_to_crt7, $path_to_key8);
 
   ($page, $response, %reply_headers)
 	 = post_https('www.bacus.pt', 443, '/foo.cgi',           # 3b
 	      make_headers('Authorization' =>
-			   'Basic ' . MIME::Base64::encode("$user:$pass")),
+			   'Basic ' . MIME::Base64::encode("$user:$pass",'')),
 	      make_form(OK   => '1', name => 'Sampo'),
 	      $mime_type6, $path_to_crt7, $path_to_key8);
 
@@ -649,7 +664,7 @@ password as well
   ($page, $result, %headers) =
          = get_https('www.bacus.pt', 443, '/protected.html',
 	      make_headers(Authorization =>
-			   'Basic ' . MIME::Base64::encode("susie:pass"))
+			   'Basic ' . MIME::Base64::encode("susie:pass",''))
 	      );
 
 This example demonstrates case where we authenticate to the proxy as
@@ -1348,10 +1363,10 @@ sub debug_read {
     my ($replyr, $gotr) = @_;
     my $vm = $trace>2 && $linux_debug ?
 	(split ' ', `cat /proc/$$/stat`)[22] : 'vm_unknown';
-    warn "  got " . length($$gotr) . ':'
-	. length($$replyr) . " bytes (VM=$vm).\n" if $trace == 3;
-    warn "  got `$$gotr' (" . length($$gotr) . ':'
-	. length($$replyr) . " bytes, VM=$vm)\n" if $trace>3;
+    warn "  got " . blength($$gotr) . ':'
+	. blength($$replyr) . " bytes (VM=$vm).\n" if $trace == 3;
+    warn "  got `$$gotr' (" . blength($$gotr) . ':'
+	. blength($$replyr) . " bytes, VM=$vm)\n" if $trace>3;
 }
 
 sub ssl_read_all {
@@ -1363,7 +1378,7 @@ sub ssl_read_all {
     while ($how_much > 0) {
 	$got = Net::SSLeay::read($ssl,$how_much);
 	last if $errs = print_errs('SSL_read');
-	$how_much -= length($got);
+	$how_much -= blength($got);
 	debug_read(\$reply, \$got) if $trace>1;
 	last if $got eq '';  # EOF
 	$reply .= $got;
@@ -1379,7 +1394,7 @@ sub ssl_write_all {
     } else {
 	$data_ref = \$_[1];
     }
-    my ($wrote, $written, $to_write) = (0,0, length($$data_ref));
+    my ($wrote, $written, $to_write) = (0,0, blength($$data_ref));
     my $vm = $trace>2 && $linux_debug ?
 	(split ' ', `cat /proc/$$/stat`)[22] : 'vm_unknown';
     warn "  write_all VM at entry=$vm\n" if $trace>2;
@@ -1424,7 +1439,7 @@ sub ssl_read_until ($;$$) {
 	last if $got eq '';
         $reply .= $got;
 	last if $len_delim
-	    && substr($reply, length($reply)-$len_delim) eq $delim;
+	    && substr($reply, blength($reply)-$len_delim) eq $delim;
     }
     return $reply;
 }
@@ -1563,9 +1578,9 @@ sub sslcat { # address, port, message, $crt, $key --> reply / (reply,errs,cert)
     
     ### Connected. Exchange some data (doing repeated tries if necessary).
         
-    warn "sslcat $$: sending " . length($out_message) . " bytes...\n"
+    warn "sslcat $$: sending " . blength($out_message) . " bytes...\n"
 	if $trace==3;
-    warn "sslcat $$: sending `$out_message' (" . length($out_message)
+    warn "sslcat $$: sending `$out_message' (" . blength($out_message)
 	. " bytes)...\n" if $trace>3;
     ($written, $errs) = ssl_write_all($ssl, $out_message);
     goto cleanup unless $written;
@@ -1575,8 +1590,8 @@ sub sslcat { # address, port, message, $crt, $key --> reply / (reply,errs,cert)
     
     warn "waiting for reply...\n" if $trace>2;
     ($got, $errs) = ssl_read_all($ssl);
-    warn "Got " . length($got) . " bytes.\n" if $trace==3;
-    warn "Got `$got' (" . length($got) . " bytes)\n" if $trace>3;
+    warn "Got " . blength($got) . " bytes.\n" if $trace==3;
+    warn "Got `$got' (" . blength($got) . " bytes)\n" if $trace>3;
 
 cleanup:	    
     free ($ssl);
@@ -1655,17 +1670,17 @@ sub https_cat { # address, port, message --> returns reply / (reply,errs,cert)
     
     ### Connected. Exchange some data (doing repeated tries if necessary).
         
-    warn "sslcat $$: sending " . length($out_message) . " bytes...\n"
+    warn "sslcat $$: sending " . blength($out_message) . " bytes...\n"
 	if $trace==3;
-    warn "sslcat $$: sending `$out_message' (" . length($out_message)
+    warn "sslcat $$: sending `$out_message' (" . blength($out_message)
 	. " bytes)...\n" if $trace>3;
     ($written, $errs) = ssl_write_all($ssl, $out_message);
     goto cleanup unless $written;
     
     warn "waiting for reply...\n" if $trace>2;
     ($got, $errs) = ssl_read_all($ssl);
-    warn "Got " . length($got) . " bytes.\n" if $trace==3;
-    warn "Got `$got' (" . length($got) . " bytes)\n" if $trace>3;
+    warn "Got " . blength($got) . " bytes.\n" if $trace==3;
+    warn "Got `$got' (" . blength($got) . " bytes)\n" if $trace>3;
 
 cleanup:
     free ($ssl);
@@ -1730,7 +1745,7 @@ sub make_headers {
 	my $header = shift(@headers);
 	my $value = shift(@headers);
 	$header =~ s/:$//;
-	$value =~ s/\x0d\x0a$//; # because we add it soon, see below
+	$value =~ s/\x0d?\x0a$//; # because we add it soon, see below
 	$headers .= "$header: $value$CRLF";
     }
     return $headers;
@@ -1743,7 +1758,7 @@ sub do_https3 {
 
     if ($content) {
 	$mime_type = "application/x-www-form-urlencoded" unless $mime_type;
-	my $len = length($content);
+	my $len = blength($content);
 	$content = "Content-Type: $mime_type$CRLF"
 	    . "Content-Length: $len$CRLF$CRLF$content";
     } else {
