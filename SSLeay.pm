@@ -1,6 +1,7 @@
 # Net::SSLeay.pm - Perl module for using Eric Young's implementation of SSL
 #
-# Copyright (c) 1996-2002 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
+# Copyright (c) 1996-2003 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
+# $Id: SSLeay.pm,v 1.21 2003/02/14 03:11:07 sampo Exp $
 # Version 1.04, 31.3.1999
 # 30.7.1999, Tracking OpenSSL-0.9.3a changes, --Sampo
 # 31.7.1999, version 1.05 --Sampo
@@ -36,7 +37,7 @@
 #            --mikem@open.com_.au
 # 6.9.2002,  fixed X509_STORE_set_flags to X509_STORE_CTX_set_flags, --Sampo
 # 19.9.2002, applied patch from Tim Engler <tim@burntcouch_.com>
-# $Id: SSLeay.pm,v 1.18 2002/08/21 17:52:41 sampo Exp $
+# 18.2.2003, applied patch from Toni Andjelkovic <toni@soth._at>
 #
 # The distribution and use of this module are subject to the conditions
 # listed in LICENSE file at the root of OpenSSL-0.9.6c
@@ -84,7 +85,7 @@ $Net::SSLeay::slowly = 0;  # don't change here, use
 # /dev/random would block and /dev/urandom starts to return predictable
 # numbers).
 #
-# N.B. /dev/urandom does not exit on all systems, such as Solaris. In that
+# N.B. /dev/urandom does not exit on all systems, such as Solaris 2.6. In that
 #      case you should get a third party package that emulates /dev/urandom
 #      (e.g. via named pipe) or supply a random number file. Some such
 #      packages are documented in Caveat section of the POD documentation.
@@ -92,7 +93,7 @@ $Net::SSLeay::slowly = 0;  # don't change here, use
 $Net::SSLeay::random_device = '/dev/urandom';
 $Net::SSLeay::how_random = 512;
 
-$VERSION = '1.21';
+$VERSION = '1.22';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -339,6 +340,7 @@ $VERSION = '1.21';
 	CTX_use_certificate_file
 	load_error_strings
 	ERR_load_SSL_strings
+	ERR_load_RAND_strings
 	state_string
 	rstate_string
 	state_string_long
@@ -718,10 +720,11 @@ requires MIME::Base64 module to work.
 
 =head2 Certificate verification and Certificate Revoocation Lists (CRLs)
 
-OpenSSL supports the ability to verify peer certificates. It can also optionally
-check peer certificate against a Certificate Revocation List (CRL) from teh certificates
-issuer. A CRL is a file, created by the certificate issuer that lists all the 
-certificates that ir previously signed, but which it now revokes. CRLs are in PEM format.
+OpenSSL supports the ability to verify peer certificates. It can also
+optionally check the peer certificate against a Certificate Revocation
+List (CRL) from the certificates issuer. A CRL is a file, created by
+the certificate issuer that lists all the certificates that it
+previously signed, but which it now revokes. CRLs are in PEM format.
 
 You can enable Net::SSLeay CRL checking like this:
 
@@ -729,20 +732,24 @@ You can enable Net::SSLeay CRL checking like this:
 		(&Net::SSLeay::CTX_get_cert_store($ssl), 
 		 &Net::SSLeay::X509_V_FLAG_CRL_CHECK); 
 
-After setting this flag, if OpenSSL checks a peer's certificate, then it will attempt
-to find a CRL for the issuer. It does this by looking for a specially named file in
-the sercah directory specified by CTX_load_verify_locations. 
-CRL files are named with the hash of the issuers subject name, followed by .r0, .r1 etc.
-For example ab1331b2.r0, ab1331b2.r1. It will read all the .r files for the issuer,
-and then check for a revocation of the peer cerificate in all of them. 
-(You can also force it to look in a specific named CRL file., see below).
-You can find out the hash of the issuer subject name in a CRL with
+After setting this flag, if OpenSSL checks a peer's certificate, then
+it will attempt to find a CRL for the issuer. It does this by looking
+for a specially named file in the search directory specified by
+CTX_load_verify_locations.  CRL files are named with the hash of the
+issuer's subject name, followed by .r0, .r1 etc.  For example
+ab1331b2.r0, ab1331b2.r1. It will read all the .r files for the
+issuer, and then check for a revocation of the peer cerificate in all
+of them.  (You can also force it to look in a specific named CRL
+file., see below).  You can find out the hash of the issuer subject
+name in a CRL with
+
 	openssl crl -in crl.pem -hash -noout
 
-If the peer certificate does not pass the revocation list, or if no CRL is found,
-then the handshaking fails with an error.
+If the peer certificate does not pass the revocation list, or if no
+CRL is found, then the handshaking fails with an error.
 
-You can also force OpenSSL to look for CRLs in one or more arbitrarily named files.
+You can also force OpenSSL to look for CRLs in one or more arbitrarily
+named files.
 
 my $bio = &Net::SSLeay::BIO_new_file($crlfilename, 'r');
 my $crl = &Net::SSLeay::PEM_read_bio_X509_CRL($bio);
@@ -952,12 +959,20 @@ as I was lazy and needed them, the following kludges are implemented:
     $x509_name = Net::SSLeay::X509_get_subject_name($x509_cert);
     $x509_name = Net::SSLeay::X509_get_issuer_name($x509_cert);
     print Net::SSLeay::X509_NAME_oneline($x509_name);
+    $text = Net::SSLeay::X509_NAME_get_text_by_NID($name, $nid);
+
     Net::SSLeay::RAND_seed($buf);   # Perlishly figures out buf size
+    Net::SSLeay::RAND_bytes($buf, $num);
+    Net::SSLeay::RAND_pseudo_bytes($buf, $num);
+    Net::SSLeay::RAND_add($buf, $num, $entropy);
+    Net::SSLeay::RAND_poll();
+    Net::SSLeay::RAND_status();
     Net::SSLeay::RAND_cleanup();
+    Net::SSLeay::RAND_file_name($num);
     Net::SSLeay::RAND_load_file($file_name, $how_many_bytes);
     Net::SSLeay::RAND_write_file($file_name);
     Net::SSLeay::RAND_egd($path);
-    $text = Net::SSLeay::X509_NAME_get_text_by_NID($name, $nid);
+    Net::SSLeay::RAND_egd_bytes($path, $bytes);
 
 Actually you should consider using the following helper functions:
 
@@ -1582,7 +1597,7 @@ sub ssl_read_until ($;$$) {
 	    
 	    #$found = index($got, $delim);  # Old and broken
 	    
-	    # the delimeter may be split across two gets, so we prepend
+	    # the delimiter may be split across two gets, so we prepend
 	    # a little from the last get onto this one before we check
 	    # for a match
 	    my $match;
@@ -1599,7 +1614,7 @@ sub ssl_read_until ($;$$) {
 
 	    if ($found > -1) {
 		#$got = Net::SSLeay::read($ssl, $found+$len_delim);
-		#read up to the end of the delimeter
+		#read up to the end of the delimiter
 		$got = Net::SSLeay::read($ssl,
 					 $found + $len_delim
 					 - ((blength $match) - (blength $got)));
@@ -1902,7 +1917,7 @@ sub set_server_cert_and_key ($$$) { &set_cert_and_key }
 sub set_proxy ($$;**) {
     ($proxyhost, $proxyport, $proxyuser, $proxypass) = @_;
     require MIME::Base64 if $proxyuser;
-    $proxyauth = 'Proxy-authorization: basic '
+    $proxyauth = $CRLF . 'Proxy-authorization: Basic '
 	. MIME::Base64::encode("$proxyuser:$proxypass", '')
 	    if $proxyuser;
 }

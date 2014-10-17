@@ -7,7 +7,7 @@
 #	     <eselber@briefcase.com> that made Windows builds painful --Sampo
 # 20.8.2001, tweaked path editing, thanks to Gordon Lack
 #            <gml4410@@ggr.co.uk> --Sampo
-# $Id: Makefile.PL,v 1.10 2002/08/16 20:56:28 sampo Exp $
+# $Id: Makefile.PL,v 1.11 2002/10/31 07:03:28 sampo Exp $
 #
 # Configuration script for Net::SSLeay.pm
 

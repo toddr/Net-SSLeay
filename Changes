@@ -161,3 +161,7 @@ Revision history for Perl extension Net::SSLeay.
         - perl-5.8/gcc-3.2 patch on Makefile.PL from
 	  Joern_Hoos@@notes.uni-paderborn._de, lucho@@galix._com,
 	  bellis@@saberlogic._com, and simonclewer@@superquote._com
+1.22  8.1.2003
+	- proxy auth fix from Bill.Muller@@ubsw_..com
+      18.2.2003
+	- RAND patch from Toni Andjelkovic <toni@soth._at>

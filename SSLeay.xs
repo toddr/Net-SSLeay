@@ -40,7 +40,7 @@
  * 6.9.2002,  applied Mike's patch and fixed X509_STORE_* to X509_STORE_CTX_*
  *	      --Sampo
  *
- * $Id: SSLeay.xs,v 1.11 2002/08/21 17:52:42 sampo Exp $
+ * $Id: SSLeay.xs,v 1.12 2002/11/05 05:39:02 sampo Exp $
  * 
  * The distribution and use of this module are subject to the conditions
  * listed in LICENSE file at the root of OpenSSL-0.9.6b
@@ -2350,6 +2350,78 @@ SSLeay_add_ssl_algorithms()
 
 void
 ERR_load_SSL_strings()
+
+void
+ERR_load_RAND_strings()
+
+int
+RAND_bytes(buf, num)
+    SV *buf
+    int num
+    PREINIT:
+        int rc;
+        unsigned char *random;
+    CODE:
+        New(0, random, num, unsigned char);
+        rc = RAND_bytes(random, num);
+        sv_setpvn(buf, random, num);
+        Safefree(random);
+        RETVAL = rc;
+    OUTPUT:
+        RETVAL
+
+int
+RAND_pseudo_bytes(buf, num)
+    SV *buf
+    int num
+    PREINIT:
+        int rc;
+        unsigned char *random;
+    CODE:
+        New(0, random, num, unsigned char);
+        rc = RAND_pseudo_bytes(random, num);
+        sv_setpvn(buf, random, num);
+        Safefree(random);
+        RETVAL = rc;
+    OUTPUT:
+        RETVAL
+
+void
+RAND_add(buf, num, entropy)
+    SV *buf
+    int num
+    double entropy
+    PREINIT:
+        STRLEN len;
+    CODE:
+        RAND_add((const void *)SvPV(buf, len), num, entropy);
+
+int
+RAND_poll()
+
+int
+RAND_status()
+
+int
+RAND_egd_bytes(path, bytes)
+    const char *path
+    int bytes
+
+SV *
+RAND_file_name(num)
+    size_t num
+    PREINIT:
+        char *buf;
+    CODE:
+        New(0, buf, num, char);
+        if (!RAND_file_name(buf, num)) {
+            Safefree(buf);
+            XSRETURN_UNDEF;
+        }
+        RETVAL = newSVpv(buf, 0);
+        Safefree(buf);
+    OUTPUT:
+        RETVAL
 
 void
 RAND_seed(buf)
