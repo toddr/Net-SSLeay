@@ -20,6 +20,7 @@ examples/bulk.pl
 examples/stdio_bulk.pl
 examples/https-proxy-snif.pl
 examples/get_page.pl
+examples/get_page_cert.pl
 examples/get_authenticated_page.pl
 examples/req.conf
 examples/makecert.pl

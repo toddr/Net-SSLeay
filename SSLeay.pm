@@ -14,7 +14,9 @@
 # 9.11.2001, added EGD (entropy gathering daemon) reference info --Sampo
 # 7.12.2001, Added proxy support by Bruno De Wolf <bruno.dewolf@@pandora._be>
 # 6.1.2002,  cosmetic fix to socket options from Kwindla Hultman Kramer <kwindla@@allafrica_.com>
-# $Id: SSLeay.pm,v 1.9 2002/01/06 17:02:57 sampo Exp $
+# 25.3.2002, added post_https_cert and friends per patch from
+#            mock@@obscurity.ogr, --Sampo
+# $Id: SSLeay.pm,v 1.10 2002/03/25 23:31:51 sampo Exp $
 #
 # The distribution and use of this module are subject to the conditions
 # listed in LICENSE file at the root of OpenSSL-0.9.6a
@@ -70,7 +72,7 @@ $Net::SSLeay::slowly = 0;  # don't change here, use
 $Net::SSLeay::random_device = '/dev/urandom';
 $Net::SSLeay::how_random = 512;
 
-$VERSION = '1.13';
+$VERSION = '1.14';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -462,6 +464,8 @@ Net::SSLeay - Perl extension for using OpenSSL or SSLeay
 
   $reply = sslcat($host, $port, $request);                       # 4
 
+  ($reply, $err, $server_cert) = sslcat($host, $port, $request); # 5
+
   $Net::SSLeay::trace = 2;  # 0=no debugging, 1=ciphers, 2=trace, 3=dump data
 
 =head1 DESCRIPTION
@@ -472,7 +476,7 @@ documentation.
 
 This module offers some high level convinience functions for accessing
 web pages on SSL servers, a sslcat() function for writing your own
-clients, and finally access to the SSL api of SSLeay package so you
+clients, and finally access to the SSL api of SSLeay/OpenSSL package so you
 can write servers or clients for more complicated applications.
 
 For high level functions it is most convinient to import them to your
@@ -511,6 +515,9 @@ easily contact servers, send some data, and then get the response. You
 are responsible for formatting the data and parsing the response -
 sslcat() is just a transport.
 
+Case 5 is a full invocation of sslcat() which allows return of errors
+as well as the server (peer) certificate.
+
 The $trace global variable can be used to control the verbosity of high
 level functions. Level 0 guarantees silence, level 1 (the default)
 only emits error messages.
@@ -529,10 +536,12 @@ to a hash.
       print "$headers[$i] = " . $headers[$i+1] . "\n";
   }
   
-  ($page, $response, $headers) = get_https3('www.bacus.pt', 443, '/');
+  ($page, $response, $headers, $server_cert)
+    = get_https3('www.bacus.pt', 443, '/');
   print "$headers\n";
 
-  ($page, $response, %headers_ref) = get_https4('www.bacus.pt', 443, '/');
+  ($page, $response, %headers_ref, $server_cert)
+    = get_https4('www.bacus.pt', 443, '/');
   for $k (sort keys %{headers_ref}) {
       for $v (@{$headers_ref{$k}}) {
 	  print "$k = $v\n";
@@ -547,7 +556,31 @@ hash of arrays (see perlref and perllol manual pages if you are
 not familiar with complex perl data structures). To access single value
 of such header hash you would do something like
 
-    print $headers_ref{COOKIE}[0];
+  print $headers_ref{COOKIE}[0];
+
+The variants 3 and 4 also allow you to discover the server certificate
+in case you would like to store or display it, e.g.
+
+  ($p, $resp, $hdrs, $server_cert) = get_https3('www.bacus.pt', 443, '/');
+  if (!defined($server_cert) || ($server_cert == 0)) {
+      warn "Subject Name: undefined, Issuer  Name: undefined";
+  } else {
+      warn 'Subject Name: '
+	  . Net::SSLeay::X509_NAME_oneline(
+		 Net::SSLeay::X509_get_subject_name($server_cert))
+	      . 'Issuer  Name: '
+		  . Net::SSLeay::X509_NAME_oneline(
+                         Net::SSLeay::X509_get_issuer_name($server_cert));
+  }
+
+Beware that this method only allows after the fact verification of
+the certificate: by the time get_https3() has returned the https
+request has already been sent to the server, whether you decide to
+tryst it or not. To do the verification correctly you must either
+employ the OpenSSL certificate verification framework or use
+the lower level API to first connect and verify the certificate
+and only then send the http data. See implementation of ds_https3()
+for guidance on how to do this.
 
 =head2 Using client certificates
 
@@ -857,7 +890,7 @@ Following is a simple SSLeay client (with too little error checking :-(
     
     $res = Net::SSLeay::write($ssl, $msg);  # Perl knows how long $msg is
     die_if_ssl_error("ssl write");
-    shutdown S, 1;  # Half close --> No more output, sends EOF to server
+    CORE::shutdown S, 1;  # Half close --> No more output, sends EOF to server
     $got = Net::SSLeay::read($ssl);         # Perl returns undef on failure
     die_if_ssl_error("ssl read");
     print $got;
@@ -1093,6 +1126,40 @@ them are trivial enough that I believe they "just work", but others
 have rather complex interfaces with function pointers and all. In these
 cases you should proceed wit great caution.
 
+This module defaults to using OpenSSL automatic protocol negotiation
+code for automatically detecting the version of the SSL protocol
+that the other end talks. With most web servers this works just
+fine, but once in a while I get complaints from people that the module
+does not work with some web servers. Usually this can be solved
+by explicitly setting the protocol version, e.g.
+
+   $Net::SSLeay::ssl_version = 2;  # Insist on SSLv2
+   $Net::SSLeay::ssl_version = 3;  # Insist on SSLv3
+   $Net::SSLeay::ssl_version = 10; # Insist on TLSv1
+
+Although the autonegotiation is nice to have, the SSL standards
+do not formally specify any such mechanism. Most of the world has
+accepted the SSLeay/OpenSSL way of doing it as the de facto standard. But
+for the few that think differently, you have to explicitly speak
+the correct version. This is not really a bug, but rather a deficiency
+in the standards. If a site refuses to respond or sends back some
+nonsensical error codes (at SSL handshake level), try this option
+before mailing me.
+
+The high level API returns the certificate of the peer, thus allowing
+one to check what certificate was supplied. However, you will only be
+able to check the certificate after the fact, i.e. you already sent
+your form data by the time you find out that you did not trust them,
+oops.
+
+So, while being able to know the certificate after the fact is surely
+useful, the security minded would still choose to do the connection
+and certificate verification first and only after that exchange data
+with the site. Currently none of the high level API functions do
+this, thus you would have to program it using the low level API. A
+good place to start is to see how Net::SSLeay::http_cat() function
+is implemented.
+
 =head1 DIAGNOSTICS
 
 "Random number generator not seeded!!!"
@@ -1126,9 +1193,21 @@ Password is being asked for private key
   do this (or just study examples/makecert.pl which is used
   during `make test' to do just that).
 
+=head1 REPORTING BUGS AND SUPPORT
+
+Please see README for full bug reporting instructions. In general I do
+not answer for free stupid questions or questions where you did not
+do your home work.
+
+Commercial support for Net::SSLeay may be obtained from
+
+   Symlabs (netssleay@symlabs.com)
+   Tel: +351-214.222.630
+   Fax: +351-214.222.637
+
 =head1 VERSION
 
-This man page documents version 1.10, released on 7.12.2001.
+This man page documents version 1.14, released on 25.3.2002.
 
 There are currently two perl modules for using OpenSSL C
 library: Net::SSLeay (maintaned by me) and SSLeay (maintained by OpenSSL
@@ -1141,7 +1220,7 @@ contain any further functionality, i.e. I will concentrate on just
 making a simple SSL connection over TCP socket. Presumably Eric's own
 module will offer full SSLeay API one day.
 
-This module uses OpenSSL-0.9.6b. It does not work with any earlier
+This module uses OpenSSL-0.9.6c. It does not work with any earlier
 version and there is no guarantee that it will work with later
 versions either, though as long as C API does not change, it
 should. This module requires perl5.005, or 5.6.0 (or better?) though I
@@ -1213,8 +1292,8 @@ sub open_tcp_connection {
     my ($dest_serv, $port) = @_;
     my ($errs);
     
-    $port = getservbyname  ($port, 'tcp') unless $port =~ /^\d+$/;
-    my $dest_serv_ip = gethostbyname ($dest_serv);
+    $port = getservbyname($port, 'tcp') unless $port =~ /^\d+$/;
+    my $dest_serv_ip = gethostbyname($dest_serv);
     unless (defined($dest_serv_ip)) {
 	$errs = "$0 $$: open_tcp_connection: destination host not found:"
             . " `$dest_serv' (port $port) ($!)\n";
@@ -1377,8 +1456,8 @@ sub dump_peer_certificate ($) {
     return if print_errs('get_peer_certificate');
     print "no cert defined\n" if !defined($cert);
     # Cipher=NONE with empty cert fix
-    if (defined($cert) && $cert == 0) {
-	print "cert = `$cert'\n";
+    if (!defined($cert) || ($cert == 0)) {
+	warn "cert = `$cert'\n" if $trace;
 	return "Subject Name: undefined\nIssuer  Name: undefined\n";
     } else {
 	return 'Subject Name: '
@@ -1422,11 +1501,11 @@ sub new_x_ctx {
 ### Basic request - response primitive (don't use for https)
 ###
 
-sub sslcat { # address, port, message, $crt, $key --> returns reply
+sub sslcat { # address, port, message, $crt, $key --> reply / (reply,errs,cert)
     my ($dest_serv, $port, $out_message, $crt_path, $key_path) = @_;
     my ($ctx, $ssl, $got, $errs, $written);
     
-    ($got, $errs) = open_proxy_tcp_connection($dest_serv, $port, \$errs);
+    ($got, $errs) = open_proxy_tcp_connection($dest_serv, $port);
     return (wantarray ? (undef, $errs) : undef) unless $got;
     
     ### Do SSL negotiation stuff
@@ -1474,6 +1553,8 @@ sub sslcat { # address, port, message, $crt, $key --> returns reply
     warn "SSLeay connect returned $got\n" if $trace>2;
     goto cleanup if $errs = print_errs('SSL_connect');
     
+    my $server_cert = get_peer_certificate($ssl);
+    print_errs('get_peer_certificate');
     if ($trace>1) {	    
 	warn "Cipher `" . get_cipher($ssl) . "'\n";
 	print_errs('get_ciper');
@@ -1490,7 +1571,7 @@ sub sslcat { # address, port, message, $crt, $key --> returns reply
     goto cleanup unless $written;
     
     sleep $slowly if $slowly;  # Closing too soon can abort broken servers
-    shutdown SSLCAT_S, 1;  # Half close --> No more output, send EOF to server
+    CORE::shutdown SSLCAT_S, 1;  # Half close --> No more output, send EOF to server
     
     warn "waiting for reply...\n" if $trace>2;
     ($got, $errs) = ssl_read_all($ssl);
@@ -1504,7 +1585,7 @@ cleanup2:
     CTX_free ($ctx);
     $errs .= print_errs('CTX_free');
     close SSLCAT_S;    
-    return wantarray ? ($got, $errs) : $got;
+    return wantarray ? ($got, $errs, $server_cert) : $got;
 }
 
 ###
@@ -1512,11 +1593,11 @@ cleanup2:
 ###                 because this does not shutdown the connection.
 ###
 
-sub https_cat { # address, port, message --> returns reply
+sub https_cat { # address, port, message --> returns reply / (reply,errs,cert)
     my ($dest_serv, $port, $out_message, $crt_path, $key_path) = @_;
     my ($ctx, $ssl, $got, $errs, $written);
     
-    ($got, $errs) = open_proxy_tcp_connection($dest_serv, $port, \$errs);
+    ($got, $errs) = open_proxy_tcp_connection($dest_serv, $port);
     return (wantarray ? (undef, $errs) : undef) unless $got;
 	    
     ### Do SSL negotiation stuff
@@ -1564,6 +1645,8 @@ sub https_cat { # address, port, message --> returns reply
     warn "SSLeay connect failed" if $trace>2 && $got==0;
     goto cleanup if $errs = print_errs('SSL_connect');
     
+    my $server_cert = get_peer_certificate($ssl);
+    print_errs('get_peer_certificate');
     if ($trace>1) {	    
 	warn "Cipher `" . get_cipher($ssl) . "'\n";
 	print_errs('get_ciper');
@@ -1591,7 +1674,7 @@ cleanup2:
     CTX_free ($ctx);
     $errs .= print_errs('CTX_free');
     close SSLCAT_S;    
-    return wantarray ? ($got, $errs) : $got;
+    return wantarray ? ($got, $errs, $server_cert) : $got;
 }
 
 ###
@@ -1656,7 +1739,7 @@ sub make_headers {
 sub do_https3 {
     my ($method, $site, $port, $path, $headers,
 	$content, $mime_type, $crt_path, $key_path) = @_;
-    my ($response, $page, $errs, $http, $h,$v);
+    my ($response, $page, $h,$v);
 
     if ($content) {
 	$mime_type = "application/x-www-form-urlencoded" unless $mime_type;
@@ -1669,13 +1752,14 @@ sub do_https3 {
     my $req = "$method $path HTTP/1.0$CRLF"."Host: $site:$port$CRLF"
       . (defined $headers ? $headers : '') . "Accept: */*$CRLF$content";    
 
-    ($http, $errs) = https_cat($site, $port, $req, $crt_path, $key_path);
+    my ($http, $errs, $server_cert)
+	= https_cat($site, $port, $req, $crt_path, $key_path);
     return (undef, "HTTP/1.0 900 NET OR SSL ERROR$CRLF$CRLF$errs") if $errs;
     
     $http = '' if !defined $http;
     ($headers, $page) = split /\s?\n\s?\n/, $http, 2;
     ($response, $headers) = split /\s?\n/, $headers, 2;
-    return ($page, $response, $headers);
+    return ($page, $response, $headers, $server_cert);
 }
 
 ### do_https2() is a legacy version in the sense that it is unable

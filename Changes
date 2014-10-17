@@ -7,24 +7,24 @@ Revision history for Perl extension Net::SSLeay.
 0.04  19.7.1996 Fixed some 0.6.1 incompatibilities, namely removed
       #include <ssl_locl.h>, fixed typo in SSL_get_cerificate, fixed
       the return type of the same. --Sampo
-1.00  19.6.1998, Sampo Kellomaki <sampo@iki.fi>
+1.00  19.6.1998, Sampo Kellomaki <sampo@@_iki.fi>
 	- overhauled to SSLeay-0.9.0
 	- renamed cat to sslcat
 	- added lots of convenience functions, like get_https
-	- added couple of X509 routeines
+	- added couple of X509 routines
 	- improved tests and documentation
 	- fixed callbacks (but found that old callbacks dont work)
-1.01  23.6.1998, Sampo Kellomaki <sampo@iki.fi>
+1.01  23.6.1998, Sampo Kellomaki <sampo@@iki_.fi>
 	- made Makefile.PL check SSLeay version and to be more CPAN kosher
 	- changed build instructions to build outside perl source tree
 	- added random number initialization using /dev/urandom (if available)
 	- made ssl_write_all accept references, this is more memory efficient
-1.02  8.7.1998, Sampo Kellomaki <sampo@iki.fi>
+1.02  8.7.1998, Sampo Kellomaki <sampo@@iki._fi>
 	- Added SSL_(CTX)?_set_options and associated constants
 	- Slight clean-ups
-1.03  4.1.1999, Sampo Kellomaki <sampo@iki.fi>
+1.03  4.1.1999, Sampo Kellomaki <sampo@@iki._fi>
 	- Merged URI encoding patch to make_form
-	  from Joe Rhett <jrhett@navigist.com>
+	  from Joe Rhett <jrhett@@navigist._com>
 	- changed sslcat, ssl_read_all, ssl_write_all to return error messages
 	  as second member of list. Functions continue to behave the old way
 	  if scalar return value is used (they check this with wantarray).
@@ -38,7 +38,7 @@ Revision history for Perl extension Net::SSLeay.
 	  hopefully make it easier to compile with some vendor compilers
 	- Added version detection code for OpenSSL-0.9.1c and checked
 	  build
-1.04  31.1.1999, Sampo Kellomaki <sampo@iki.fi>
+1.04  31.1.1999, Sampo Kellomaki <sampo@@_iki._fi>
 	- Backward incompatible changes in OpenSSL API mean that 1.04 will
 	  drop support for SSLeay and all OpenSSL versions prior
 	  to 0.9.2b release. Thanks guys!
@@ -66,12 +66,12 @@ Revision history for Perl extension Net::SSLeay.
 	- fixed get_https and post_https so they don't do shutdown
 	  anymore. This used to cause headaches when connection
 	  renegotiation happened.
-	- applied ssl_read_CRLF patch by Clinton Wong <clintdw@netcom.com>
-	- ActivePerl diffs from anton@genua.de applied,
+	- applied ssl_read_CRLF patch by Clinton Wong <clintdw@@netcom._com>
+	- ActivePerl diffs from anton@@_genua.de applied,
 	  but not tested.
 1.05  31.1.1999, --Sampo
 	- fixed test cert creation (lack of symlinks, reported
-          by schinder@pobox.com)
+          by schinder@@_pobox.com)
 	- callbacks fixed and tested to work
 	- added Authentication examples
 	- added couple more X509_STORE_CTX family functions
@@ -81,31 +81,31 @@ Revision history for Perl extension Net::SSLeay.
 	- various minor fixes subnitted by fellow netters (sorry, I lost track
 	  of your names so I do not name the contributors here)
 1.07  18.4.2001,
-	- TLSv1 support by Stephen C. Koehler <koehler@securecomputing.com>
+	- TLSv1 support by Stephen C. Koehler <koehler@@securecomputing_.com>
 1.08  25.4.2001,
-	- applied 64 bit fixes by Marko Asplund <aspa@kronodoc.fi>
+	- applied 64 bit fixes by Marko Asplund <aspa@@kronodoc._fi>
       17.7.2001,
 	- applied error codes and SSL_*_method patch by Noel Burton-Krahn
           <noel@burton-krahn.com> via aspa
-	- warning cleanups by Jared Allison <jallison@UU.NET>
-	- do last loop fixes from Jim Bowlin <bowlin@mindspring.com>
+	- warning cleanups by Jared Allison <jallison@@UU_.NET>
+	- do last loop fixes from Jim Bowlin <bowlin@@_mindspring.com>
 	- Fixed extra-newline-if-header-already-contained-newline problem
 	  reported by Sean McMurray <smcmurray@verio.net> (first reported by
-	  Yuao TANIGAWA <yuao@www.infosite.ne.jp> but not fixed by me back
+	  Yuao TANIGAWA <yuao@@_www.infosite.ne.jp> but not fixed by me back
 	  then for some reason, my bad)
 	- Added ability to set client certificate for https_cat and sslcat
-	  as suggested by Avi Ben-Harush <avib@atomica.com>
+	  as suggested by Avi Ben-Harush <avib@@_atomica.com>
 	- created do_https2 with more rational calling sequence
       18.7.2001,
 	- numerous windows oriented fixes from Eric A Selber
-	  <eselber@briefcase.com>
+	  <eselber@@_briefcase.com>
 	- bumped OpenSSL version requirement to 0.9.6b and tested
-	- merged in Net::SSLeay::Handle by Jim Bowlin <jbowlin@linklint.org>
+	- merged in Net::SSLeay::Handle by Jim Bowlin <jbowlin@@_linklint.org>
 1.09  20.8.2001,
 	- fixed Makefile.PL (computation of bin_path) and test.pl ($perl
-	  use before defined) per Gordon Lack <gml4410@ggr.co.uk>
+	  use before defined) per Gordon Lack <gml4410@@_ggr.co.uk>
       11.9.2001,
-	- Patch by Jeremy Mates <jmates@mbt.washington.edu> to make Handle.pm
+	- Patch by Jeremy Mates <jmates@@_mbt.washington.edu> to make Handle.pm
 	  more acceptable for older perls
       25.9.2001,
 	- systematically implemented many of the newer functions of
@@ -121,3 +121,10 @@ Revision history for Perl extension Net::SSLeay.
 	- eliminated initializing random numbers using /etc/passwd per
 	  comments by Matt Messier <matt@@securesw_.com>
 	- tested against openssl-0.9.6c
+1.14  25.3.2002
+	- added code to Makefile.PL to verify that the same C compiler
+	  is used for both perl and openssl
+	- added code to Makefile.PL to support aCC on HPUX. Detective
+	  work contributed by Marko Asplund.
+	- added peer certificate support to hilevel API, inspired
+	  by mock@@_obscurity.org 

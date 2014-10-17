@@ -6,14 +6,15 @@
 # 18.7.2001, fixed numerous issues reported by Eric A Selber
 #	     <eselber@briefcase.com> that made Windows builds painful --Sampo
 # 20.8.2001, tweaked path editing, thanks Gordon Lack <gml4410@ggr.co.uk> --Sampo
-# $Id: Makefile.PL,v 1.5 2002/02/13 23:32:22 sampo Exp $
+# $Id: Makefile.PL,v 1.6 2002/03/25 23:46:15 sampo Exp $
 #
 # Configuration script for Net::SSLeay.pm
 
 $usage = <<USAGE
-Usage: ./Makefile.PL [-windows] [-rsaref] [-m|-t] [OpenSSL install path] [-- args]
+Usage: ./Makefile.PL [-windows] [-rsaref] [-m|-t|-d] [-g] [OpenSSL install path] [-- args]
            -m and -t  will automatically build and test, respectively
            -d         builds and tests verbosely
+           -g         Compile for debugging (see README)
            -rsaref    provides support for linking against rsaref
            -windows   sets library paths for windows build
            --         Introduces arguments for Make::Maker. Typically used
@@ -26,11 +27,15 @@ USAGE
     ;
 die $usage if grep /^--?[hv?]/i, @ARGV;
 
+use Config;
+
 $windows = shift if $ARGV[0] eq '-windows';
 $rsaref  = shift if $ARGV[0] eq '-rsaref';
 $make_it = shift if $ARGV[0] eq '-m';
 $test_it = shift if $ARGV[0] eq '-t';
 $debug = $test_it = shift if $ARGV[0] eq '-d';
+$optimize = '-O';
+$optimize = shift if $ARGV[0] eq '-g';
 
 # It seems at least Redhat installs OpenSSL in /usr ...
 $openssl_path = '/usr' if -x '/usr/bin/openssl' || -x '/usr/sbin/openssl';
@@ -100,14 +105,50 @@ close F;
 if ($windows) {
     warn "RSAREF build on Windows not supported out of box" if $rsaref;
     $libs = "-llibeay32 -lssleay32";
+
+    warn "Be sure to use the same compiler and options to compile your OpenSSL, perl, and Net::SSLeay. Mixing and matching compilers is not supported. (Currently I do not have a way to check this on Windows platform.)\n";
 } else {
-    ### There is some confusio over the correct ordering
+    ### There is some confusion over the correct ordering
     ### of these libraries. Tarang Kumar Patel <mombasa@ptolemy.arc.nasa.gov>
     ### reports this order to work on Solaris 7 and openssl-0.9.6b
     $libs = $rsaref ? "-lssl -lcrypto -lRSAglue -lrsaref" : "-lssl -lcrypto";
     
     ### old order which might work on some platforms
     #$libs = $rsaref ? "-lssl -lRSAglue -lcrypto -lrsaref" : "-lssl -lcrypto";
+
+    ### Check that perl and openssl were compiled using the same compiler
+    ### and options.
+
+    ($cc_et_alia) = grep /cc\s+-/i, `strings $exe_path`;
+    if ($cc_et_alia) {
+	($cc, %flags) = split /\s+/, $cc_et_alia;
+	if ($cc eq $Config{cc}) {
+	    warn "Good. Both OpenSSL and perl seem to have been compiled with the same compiler.\n";
+	} else {
+	    warn "*** $exe_path appears to be compiled with $cc ($cc_et_alia) while perl is compiled with $Config{cc}. Both must be compiled with the same compiler and flags. Mixing and matching compilers is not supported.";
+	}
+    } else {
+	warn "*** Could not figure out which C compiler was used to compile $exe_path. It is essentiall that OpenSSL, perl, and Net::SSLeay are compiled with the same compiler and flags. Mixing and matching compilers is not supported.";
+    }
+
+    ### When using aCC under HP-UX additional `+e' flag must be passed.
+    ### As the CCFLAGS is almost correct I abuse the OPTIMIZE to pass
+    ### this additional flag. Thanks to Marko Asplund (aspa@@kronodoc._fi)
+    ### for doing this bit of detective work.
+    
+    if (($cc =~ /aCC/i) && ($cc_et_alia =~ /hpux/i)) {
+	warn "Enabling HPUX aCC options (+e)\n";
+	$optimize = '+e ' . $optimize;
+    }
+
+    ### An unknown contributor (sorry about loosing your name) hinted
+    ### that under gcc -fPIC will run faster than -fpic and still
+    ### be binary compatible.
+
+    if( ($Config{cc} eq 'gcc') && ($Config{'cccdlflags'} =~ /-fpic/) ) {
+	warn "Enabling gcc -fPIC optimization\n";
+	($more_params{'CCCDLFLAGS'} = $Config{'cccdlflags'}) =~ s/-fpic/-fPIC/;
+    }
 }
 
 use ExtUtils::MakeMaker;
@@ -122,10 +163,12 @@ WriteMakefile(
     dist        => { COMPRESS => 'gzip', SUFFIX => 'gz', },
     LIBS	=> ["-L$openssl_path -L$openssl_path/lib $libs"],
     INC 	=> "-I$openssl_path/include",
+    OPTIMIZE    => $optimize,
 # Uncomment (and edit) following for debugging with gdb
 #    LIBS	=> ['-L/usr/src/openssl-0.9.3a -lssl -lcrypto'],
 #    INC	=> '-I/usr/src/openssl-0.9.3a/include',
 #    OPTIMIZE   => '-g',
+	      %more_params,
 );
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
