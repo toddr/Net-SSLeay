@@ -1446,12 +1446,8 @@ not_there:
 
 static SV * ssleay_verify_callback = (SV*)NULL;
 
-/* BROKEN! The verify callback arguments need to be cross checked
- * from OpenSSL-0.9.2b source **** --Sampo */
-
 static int
-ssleay_verify_callback_glue (int ok, X509 *subj_cert, X509 *issuer_cert,
-                      int depth, int errorcode, char* arg, STACK* cert_chain)
+ssleay_verify_callback_glue (int ok, X509_STORE_CTX* ctx)
 {
 	dSP ;
 	int count,res;
@@ -1463,12 +1459,7 @@ ssleay_verify_callback_glue (int ok, X509 *subj_cert, X509 *issuer_cert,
 
 	PUSHMARK(sp);
 	XPUSHs(sv_2mortal(newSViv(ok)));
-	XPUSHs(sv_2mortal(newSViv((int)subj_cert)));
-	XPUSHs(sv_2mortal(newSViv((int)issuer_cert)));
-	XPUSHs(sv_2mortal(newSViv(depth)));
-	XPUSHs(sv_2mortal(newSViv(errorcode)));
-	XPUSHs(sv_2mortal(newSViv((int)arg)));
-	XPUSHs(sv_2mortal(newSViv((int)cert_chain)));
+	XPUSHs(sv_2mortal(newSViv((int)ctx)));
 	PUTBACK ;
 	
 	if (ssleay_verify_callback == NULL)
@@ -2184,17 +2175,40 @@ X509_NAME_oneline(name)
      if (X509_NAME_oneline(name, buf, sizeof(buf)))
          sv_setpvn( ST(0), buf, strlen(buf));
 
+
 X509 *
-X509_STORE_CTX_get_current_cert(ctx)
-     X509_STORE_CTX * 	ctx
+X509_STORE_CTX_get_current_cert(x509_store_ctx)
+     X509_STORE_CTX * 	x509_store_ctx
+
+void *
+X509_STORE_CTX_get_ex_data(x509_store_ctx,idx)
+     X509_STORE_CTX * x509_store_ctx
+     int idx
 
 int
-X509_STORE_CTX_get_error(ctx)
-     X509_STORE_CTX * 	ctx
+X509_STORE_CTX_get_error(x509_store_ctx)
+     X509_STORE_CTX * 	x509_store_ctx
 
 int
-X509_STORE_CTX_get_error_depth(ctx)
-     X509_STORE_CTX * 	ctx
+X509_STORE_CTX_get_error_depth(x509_store_ctx)
+     X509_STORE_CTX * 	x509_store_ctx
+
+int
+X509_STORE_CTX_set_ex_data(x509_store_ctx,idx,data)
+     X509_STORE_CTX *   x509_store_ctx
+     int idx
+     void * data
+
+void
+X509_STORE_CTX_set_error(x509_store_ctx,s)
+     X509_STORE_CTX * x509_store_ctx
+     int s
+
+void
+X509_STORE_CTX_set_cert(x509_store_ctx,x)
+     X509_STORE_CTX * x509_store_ctx
+     X509 * x
+
 
 ASN1_UTCTIME *
 X509_get_notBefore(cert)

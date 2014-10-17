@@ -6,11 +6,14 @@
 #
 # Usage: ./Makefile.PL [-rsaref] [-m|-t] [SSLeay installation path]
 #              -m and -t will automatically build and test, respectively
+#              -d       builds and tests verbosely
 #              -rsaref  provides support for linking against rsaref
+# E.g:   ./Makefile.PL -d
 
 $rsaref  = shift if $ARGV[0] eq '-rsaref';
 $make_it = shift if $ARGV[0] eq '-m';
 $test_it = shift if $ARGV[0] eq '-t';
+$debug = $test_it = shift if $ARGV[0] eq '-d';
 $openssl_path = shift || '/usr/local/ssl';
 
 $openssl_vers = '0.9.3a';
@@ -75,6 +78,7 @@ WriteMakefile(
 #    'OPTIMIZE'  => '-g',
 );
 
+$ENV{TEST_TRACE} = 2 if $debug;
 exec "make" if $make_it;
 exec "make test" if $test_it;
 

@@ -69,3 +69,9 @@ Revision history for Perl extension Net::SSLeay.
 	- applied ssl_read_CRLF patch by Clinton Wong <clintdw@netcom.com>
 	- ActivePerl diffs from anton@genua.de applied,
 	  but not tested.
+1.05  31.1.1999, --Sampo
+	- fixed test cert creation (lack of symlinks, reported
+          by schinder@pobox.com)
+	- callbacks fixed and tested to work
+	- added Authentication examples
+	- added couple more X509_STORE_CTX family functions

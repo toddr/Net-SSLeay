@@ -3,6 +3,7 @@
 # Copyright (c) 1996-1999 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
 # Version 1.04, 31.3.1999
 # 30.7.1999, Tracking OpenSSL-0.9.3a changes, --Sampo
+# 31.7.1999, version 1.05 --Sampo
 #
 # The distribution and use of this module are subject to the conditions
 # listed in COPYRIGHT file at the root of Eric Young's SSLeay-0.9.0
@@ -43,7 +44,7 @@ $Net::SSLeay::slowly = 0;
 $Net::SSLeay::random_device = '/dev/urandom';
 $Net::SSLeay::how_random = 512;
 
-$VERSION = '1.04';
+$VERSION = '1.05';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -412,6 +413,12 @@ Net::SSLeay - Perl extension for using OpenSSL
 			'Referer'    => 'https://www.bacus.pt'
 		));
 
+  ($page, $result, %headers) =                                   # 2b
+         = get_https('www.bacus.pt', 443, '/protected.html',
+	      make_headers('Authorization' =>
+			   'Basic ' . MIME::Base64::encode("$user:$pass"))
+	      );
+
   ($page, $response, %reply_headers)
 	 = post_https('www.bacus.pt', 443, '/foo.cgi', '',       # 3
 		make_form(
@@ -447,6 +454,9 @@ fourth argument to get_https is used to insert some additional headers
 in the request. make_headers is a function that will convert a list or
 hash to such headers. By default get_https supplies Host (make virtual
 hosting easy) and Accept (reportedly needed by IIS) headers.
+
+Case 2b demonstrates how to get password protected page. Refer to
+HTTP protocol specifications for further details (e.g. RFC2617).
 
 Case 3 invokes post_https to submit a HTML/CGI form to secure
 server. First four arguments are equal to get_https (note that empty
@@ -981,6 +991,7 @@ backdoors, and general suitability for your application.
   openssl-users-request@openssl.org        - General OpenSSL mailing list
   <http://home.netscape.com/newsref/std/SSL.html>  - SSL Draft specification
   <http://www.w3c.org>                     - HTTP specifications
+  <http://www.ietf.org/rfc/rfc2617.txt>    - How to send password
 
 =cut
 

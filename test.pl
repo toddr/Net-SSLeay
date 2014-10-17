@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 # 24.6.1998, 8.7.1998, Sampo Kellomaki <sampo@iki.fi>
+# 31.7.1999, added more tests --Sampo
 #
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl test.pl'
@@ -11,7 +12,7 @@ use Config;
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN {print "1..15\n";}
+BEGIN {print "1..16\n";}
 END {print "not ok 1\n" unless $loaded;}
 use Net::SSLeay qw(die_now die_if_ssl_error);
 $loaded = 1;
@@ -19,7 +20,8 @@ print "ok 1\n";
 
 ######################### End of black magic.
 
-$trace = 1;  # 0=silent, 1=verbose, 2=debugging
+$trace = $ENV{TEST_TRACE} || 1;  # 0=silent, 1=verbose, 2=debugging
+
 $mb = 1;     # size of the bulk tests
 $errors = 0;
 $silent = $trace>1 ? '' : '>/dev/null 2>/dev/null';

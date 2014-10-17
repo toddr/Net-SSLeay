@@ -1,9 +1,11 @@
 #!/usr/local/bin/perl -w
 # callback.pl - 8.6.1998, Sampo Kellomaki <sampo@iki.fi>
+# 31.7.1999, fixed callback args, --Sampo 
+#
 # Test and demonstrate verify call back
 #
 # WARNING! Although this code works, it is by no means stable. Expect
-# that this stuff may break with newer than 0.9.0. --Sampo
+# that this stuff may break with newer than 0.9.3a --Sampo
 
 use Socket;
 use Net::SSLeay qw(die_now die_if_ssl_error);
@@ -54,36 +56,36 @@ exit;
 sub verify2 {
     my ($ok, $x509_store_ctx) = @_;
     print "**** Verify 2 called ($ok)\n";
+    my $x = Net::SSLeay::X509_STORE_CTX_get_current_cert($x509_store_ctx);
+    if ($x) {
+	print "Certificate:\n";
+	    print "  Subject Name: "
+		. Net::SSLeay::X509_NAME_oneline(
+	            Net::SSLeay::X509_get_subject_name($x))
+		    . "\n";
+	    print "  Issuer Name:  "
+		. Net::SSLeay::X509_NAME_oneline(
+	            Net::SSLeay::X509_get_issuer_name($x))
+		    . "\n";
+    }
     $callback_called++;
     return 1;
 }
 
 sub verify {
-    my ($ok, $subj_cert, $issuer_cert, $depth, $err_code, $arg, $cert_chain)
-	= @_;
-    print "--- Verifying certificate (ok=$ok, depth=$depth, err=$err_code)\n";
+    my ($ok, $x509_store_ctx) = @_;
 
-    if ($subject_cert) {
-	print "Subject certificate:\n";
+    print "**** Verify called ($ok)\n";
+    my $x = Net::SSLeay::X509_STORE_CTX_get_current_cert($x509_store_ctx);
+    if ($x) {
+	print "Certificate:\n";
 	    print "  Subject Name: "
 		. Net::SSLeay::X509_NAME_oneline(
-	            Net::SSLeay::X509_get_subject_name($subject_cert))
+	            Net::SSLeay::X509_get_subject_name($x))
 		    . "\n";
 	    print "  Issuer Name:  "
 		. Net::SSLeay::X509_NAME_oneline(
-	            Net::SSLeay::X509_get_issuer_name($subject_cert))
-		    . "\n";
-    }
-
-    if ($issuer_cert) {
-	print "Issuer certificate:\n";
-	    print "  Subject Name: "
-		. Net::SSLeay::X509_NAME_oneline(
-	            Net::SSLeay::X509_get_subject_name($subject_cert))
-		    . "\n";
-	    print "  Issuer Name:  "
-		. Net::SSLeay::X509_NAME_oneline(
-	            Net::SSLeay::X509_get_issuer_name($subject_cert))
+	            Net::SSLeay::X509_get_issuer_name($x))
 		    . "\n";
     }
     $callback_called++;

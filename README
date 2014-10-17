@@ -1,8 +1,10 @@
 README - Net::SSLeay Perl module for using OpenSSL
 
 31.7.1999, Sampo Kellomaki <sampo@iki.fi>
-Version: 1.04
-New: overhaul for OpenSSL-0.9.3b (try http://www.openssl.org/)
+Version: 1.05
+
+1.05: fixed certificate gen at make test
+1.04: overhaul for OpenSSL-0.9.3b (try http://www.openssl.org/)
 
 By popular demand...
 --------------------
@@ -214,5 +216,10 @@ To download OpenSSL, try URL http://www.openssl.org
 
 Newer versions of this module can be found from CPAN/authors/id/SAMPO/,
 the home page is http://www.bacus.pt/Net_SSLeay/index.html
+
+Please send bug reports to the above address. General questions should be
+sent either to me or to the mailing list (subscribe by sending mail
+to openssl-users-request@openssl.org or using web interface at
+http://www.openssl.org/support/).
 
 --Sampo
