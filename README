@@ -1,8 +1,9 @@
 README - Net::SSLeay Perl module for using OpenSSL
 
-7.4.2001, Sampo Kellomaki <sampo@iki.fi>
-Version: 1.06
+18.4.2001, Sampo Kellomaki <sampo@iki.fi>
+Version: 1.07
 
+1.07: added rudimentary TLSv1 support by Stephen C. Koehler
 1.06: fixed ssl_read_all() bug where input '0' would cause loop to exit
 1.05: fixed certificate gen at make test
 1.04: overhaul for OpenSSL-0.9.3b (try http://www.openssl.org/)

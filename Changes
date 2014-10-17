@@ -80,3 +80,5 @@ Revision history for Perl extension Net::SSLeay.
 	- openssl-0.9.6a fixes (e.g. random number generator init)
 	- various minor fixes subnitted by fellow netters (sorry, I lost track
 	  of your names so I do not name the contributors here)
+1.07  18.4.2001,
+	- TLSv1 support by Stephen C. Koehler <koehler@securecomputing.com>

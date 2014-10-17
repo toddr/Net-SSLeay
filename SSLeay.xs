@@ -11,6 +11,8 @@
  *            earlier versions
  * 30.7.1999, Tracking OpenSSL-0.9.3a changes, --Sampo
  * 7.4.2001,  OpenSSL-0.9.6a update, --Sampo
+ * 18.4.2001, added TLSv1 support by Stephen C. Koehler
+ *            <koehler@securecomputing.com>, version 1.07, --Sampo
  * 
  * The distribution and use of this module are subject to the conditions
  * listed in LICENSE file at the root of OpenSSL-0.9.6a
@@ -1569,6 +1571,13 @@ SSL_CTX *
 SSL_CTX_v23_new()
      CODE:
      RETVAL = SSL_CTX_new (SSLv23_method());
+     OUTPUT:
+     RETVAL
+
+SSL_CTX *
+SSL_CTX_tlsv1_new()
+     CODE:
+     RETVAL = SSL_CTX_new (TLSv1_method());
      OUTPUT:
      RETVAL
 

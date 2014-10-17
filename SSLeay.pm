@@ -5,6 +5,8 @@
 # 30.7.1999, Tracking OpenSSL-0.9.3a changes, --Sampo
 # 31.7.1999, version 1.05 --Sampo
 # 7.4.2001,  fixed input error upon 0, OpenSSL-0.9.6a, version 1.06 --Sampo
+# 18.4.2001, added TLSv1 support by Stephen C. Koehler
+#            <koehler@securecomputing.com>, version 1.07, --Sampo
 #
 # The distribution and use of this module are subject to the conditions
 # listed in LICENSE file at the root of OpenSSL-0.9.6a
@@ -26,8 +28,13 @@ use AutoLoader;
 $Net::SSLeay::trace = 0;  # Do not change here, use
                           # $Net::SSLeay::trace = [1-4]  in caller
 
-# 2 = insist on v2 SSL protocol, 3 = insist on v3 SSL, 0 or undef = guess (v23)
+# 2 = insist on v2 SSL protocol
+# 3 = insist on v3 SSL
+# 10 = insist on TLSv1
+# 0 or undef = guess (v23)
+#
 #$Net::SSLeay::ssl_version = 3;
+
 #define to enable the "cat /proc/$$/stat" stuff
 $Net::SSLeay::linux_debug = 0;
 
@@ -50,7 +57,7 @@ $Net::SSLeay::slowly = 0;  # don't change here, use
 $Net::SSLeay::random_device = '/dev/urandom';
 $Net::SSLeay::how_random = 512;
 
-$VERSION = '1.06';
+$VERSION = '1.07';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -1215,9 +1222,10 @@ sub sslcat { # address, port, message --> returns reply
     SSLeay_add_ssl_algorithms();  # and debuggability.
     randomize('/etc/passwd');
     
-    if    ($ssl_version == 2) { $ctx = CTX_v2_new(); }
-    elsif ($ssl_version == 3) { $ctx = CTX_v3_new(); }
-    else                      { $ctx = CTX_new(); }
+    if    ($ssl_version == 2)  { $ctx = CTX_v2_new(); }
+    elsif ($ssl_version == 3)  { $ctx = CTX_v3_new(); }
+    elsif ($ssl_version == 10) { $ctx = CTX_tlsv1_new(); }
+    else                       { $ctx = CTX_new(); }
 
     goto cleanup2 if $errs = print_errs('CTX_new') or !$ctx;
 

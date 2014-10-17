@@ -2,6 +2,7 @@
 # 23.6.1998, Sampo Kellomaki <sampo@iki.fi>
 # 30.7.1999, upgraded for OpenSSL-0.9.3a --Sampo
 # 7.4.2001,  upgraded to OpenSSL-0.9.6a --Sampo
+# 15.4.2001, fixed little bug in ssl directory detection --Sampo
 #
 # Configuration script for Net::SSLeay.pm
 
@@ -23,9 +24,9 @@ if (@ARGV) {
     $openssl_path = shift;
 } else {
     # It seems at least Redhat installs OpenSSL in /usr ...
-    $openssl_path = '/usr' if -x '/usr/bin/openssl' | '/usr/sbin/openssl';
+    $openssl_path = '/usr' if -x '/usr/bin/openssl' || -x '/usr/sbin/openssl';
     $openssl_path = '/opt/ssl' if -x '/opt/ssl/bin/openssl'
-	| '/opt/ssl/sbin/openssl';
+	|| -x '/opt/ssl/sbin/openssl';
     $openssl_path = '/usr/local/ssl' if -x '/usr/local/ssl/bin/openssl';
 }
 
