@@ -14,6 +14,7 @@ $loaded = 1;
 print "ok 1\n";
 
 ######################### End of black magic.
+$ENV{RND_SEED} = '1234567890123456789012345678901234567890';
 
 #    app.iplanet.com
 my @sites = qw {

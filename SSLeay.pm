@@ -1,7 +1,7 @@
 # Net::SSLeay.pm - Perl module for using Eric Young's implementation of SSL
 #
 # Copyright (c) 1996-2003 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
-# $Id: SSLeay.pm,v 1.21 2003/02/14 03:11:07 sampo Exp $
+# $Id: SSLeay.pm,v 1.22 2003/02/18 04:08:41 sampo Exp $
 # Version 1.04, 31.3.1999
 # 30.7.1999, Tracking OpenSSL-0.9.3a changes, --Sampo
 # 31.7.1999, version 1.05 --Sampo
@@ -38,6 +38,7 @@
 # 6.9.2002,  fixed X509_STORE_set_flags to X509_STORE_CTX_set_flags, --Sampo
 # 19.9.2002, applied patch from Tim Engler <tim@burntcouch_.com>
 # 18.2.2003, applied patch from Toni Andjelkovic <toni@soth._at>
+# 13.6.2003, partially applied leak patch by Marian Jancar <mjancar@suse._cz>
 #
 # The distribution and use of this module are subject to the conditions
 # listed in LICENSE file at the root of OpenSSL-0.9.6c
@@ -93,7 +94,7 @@ $Net::SSLeay::slowly = 0;  # don't change here, use
 $Net::SSLeay::random_device = '/dev/urandom';
 $Net::SSLeay::how_random = 512;
 
-$VERSION = '1.22';
+$VERSION = '1.23';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -1068,7 +1069,7 @@ Following is a simple SSLeay echo server (non forking):
     $port = 1235;							 
     $sockaddr_template = 'S n a4 x8';
     $our_serv_params = pack ($sockaddr_template, &AF_INET, $port, $our_ip);
-
+    
     socket (S, &AF_INET, &SOCK_STREAM, 0)  or die "socket: $!";
     bind (S, $our_serv_params)             or die "bind:   $!";
     listen (S, 5)                          or die "listen: $!";
@@ -1700,6 +1701,7 @@ sub randomize (;$$) {
     
     RAND_load_file($rn_seed_file, -s _) if $rnsf;
     RAND_seed($seed) if $seed;
+    RAND_seed($ENV{RND_SEED}) if $ENV{RND_SEED};
     RAND_egd($egd_path) if -S $egd_path;
     RAND_load_file($Net::SSLeay::random_device, $Net::SSLeay::how_random/8)
 	if -r $Net::SSLeay::random_device;
@@ -1982,7 +1984,8 @@ sub do_https3 {
 ### to return all instances of duplicate headers.
 
 sub do_https2 {
-    my ($page, $response, $headers) = &do_https3;
+    my ($page, $response, $headers, $server_cert) = &do_https3;
+    X509_free($server_cert) if defined $server_cert;
     return ($page, $response,
 	    map( { ($h,$v)=/^(\S+)\:\s*(.*)$/; (uc($h),$v); }
 		split(/\s?\n/, $headers)
@@ -1994,7 +1997,8 @@ sub do_https2 {
 ### are handled correctly.
 
 sub do_https4 {
-    my ($page, $response, $headers) = &do_https3;
+    my ($page, $response, $headers, $server_cert) = &do_https3;
+    X509_free($server_cert) if defined $server_cert;
     my %hr = ();
     for my $hh (split /\s?\n/, $headers) {
 	my ($h,$v)=/^(\S+)\:\s*(.*)$/;

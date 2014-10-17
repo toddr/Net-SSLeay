@@ -5,6 +5,7 @@
 
 use Socket;
 use Net::SSLeay qw(die_now die_if_ssl_error);
+$ENV{RND_SEED} = '1234567890123456789012345678901234567890';
 Net::SSLeay::randomize();
 Net::SSLeay::load_error_strings();
 Net::SSLeay::ERR_load_crypto_strings();

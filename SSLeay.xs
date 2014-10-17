@@ -39,8 +39,10 @@
  *            --mikem@open.com_.au
  * 6.9.2002,  applied Mike's patch and fixed X509_STORE_* to X509_STORE_CTX_*
  *	      --Sampo
+ * 18.2.2003, RAND patch from Toni Andjelkovic <toni@soth._at>
+ * 13.6.2003, applied SSL_X509_LOOKUP patch by Marian Jancar <mjancar@suse._cz>
  *
- * $Id: SSLeay.xs,v 1.12 2002/11/05 05:39:02 sampo Exp $
+ * $Id: SSLeay.xs,v 1.13 2003/02/18 04:08:42 sampo Exp $
  * 
  * The distribution and use of this module are subject to the conditions
  * listed in LICENSE file at the root of OpenSSL-0.9.6b
@@ -1542,12 +1544,6 @@ constant(char* name)
 	if (strEQ(name, "X509_V_FLAG_IGNORE_CRITICAL"))
 #ifdef X509_V_FLAG_IGNORE_CRITICAL
 	    return X509_V_FLAG_IGNORE_CRITICAL;
-#else
-	    goto not_there;
-#endif
-	if (strEQ(name, ""))
-#ifdef SSL_X509_LOOKUP
-	    return ;
 #else
 	    goto not_there;
 #endif

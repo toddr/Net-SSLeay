@@ -173,6 +173,7 @@ print "    Following tests _will_ fail if you do not have network\n"
 sleep 5;
 }
 
+$ENV{RND_SEED} = '1234567890123456789012345678901234567890';
 print &test('14 www.bacus.pt',
 	    &Net::SSLeay::sslcat("www.bacus.pt", 443,
 				 "get\n\r\n\r") =~ /<TITLE>/);

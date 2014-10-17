@@ -7,7 +7,8 @@
 #	     <eselber@briefcase.com> that made Windows builds painful --Sampo
 # 20.8.2001, tweaked path editing, thanks to Gordon Lack
 #            <gml4410@@ggr.co.uk> --Sampo
-# $Id: Makefile.PL,v 1.11 2002/10/31 07:03:28 sampo Exp $
+# 19.4.2003, applied some RH9 fixes from priit.randla@eyp._ee --Sampo
+# $Id: Makefile.PL,v 1.12 2003/04/07 16:17:43 sampo Exp $
 #
 # Configuration script for Net::SSLeay.pm
 
@@ -28,6 +29,7 @@ USAGE
     ;
 die $usage if grep /^--?[hv?]/i, @ARGV;
 
+use ExtUtils::MakeMaker;
 use Config;
 
 $windows = shift if $ARGV[0] eq '-windows';
@@ -48,9 +50,10 @@ $openssl_path = shift if @ARGV && $ARGV[0] ne '--';
 
 shift if $ARGV[0] eq '--';   # Rest of args are for MakeMaker
 
-$openssl_vers = '0.9.6g';
+$openssl_vers = '0.9.6j';
+$openssl_vers2 = '0.9.7b';
 
-print "Checking for OpenSSL-$openssl_vers or newer...\n";
+print "Checking for OpenSSL-$openssl_vers or $openssl_vers2 or newer...\n";
 
 while (1) {
     $exe_path = "$openssl_path/bin/openssl";
@@ -63,7 +66,8 @@ while (1) {
     last if -x $exe_path;
 
     print "I could not find your OpenSSL in `$openssl_path'\n";
-    print "Please provide OpenSSL-$openssl_vers installation directory (get from\n"
+    print "Please provide OpenSSL-$openssl_vers or\n"
+	. "OpenSSL-$openssl_vers2 installation directory (get from\n"
 	." http://www.openssl.org/ if you don't have it; please note that\n"
 	    ." SSLeay is no longer supported, see README) (C-c to abort):\n";
     $openssl_path = <STDIN>;
@@ -75,25 +79,29 @@ $vers = `$exe_path version`
 
 unless (($lib_name, $maj, $min, $letter) = $vers =~
 	/^(OpenSSL)\s+(\d+\.\d+)\.(\d+)([a-z]*)/) {
-    die "Openssl version test failed (`$vers' was returned, but\n"
+    die "OpenSSL version test failed (`$vers' was returned, but\n"
     . "couldn't be parsed). Either you have bogus OpenSSL or a new version\n"
     . "has changed the version number format.\n";
 }
 
 print "You have $lib_name-$maj.$min$letter installed in $openssl_path\n";
 
-die "That's too old. Please upgrade to OpenSSL-$openssl_vers\n"
+die "That's too old. Please upgrade to OpenSSL-$openssl_vers or\n"
+    . "OpenSSL-$openssl_vers2\n"
     . "before trying to install this module. If you can't upgrade,\n"
-    . "see README for other options.\n"
+    . "see README for other options (like older versions of this module).\n"
     if $maj eq '0.9' && $min < 3;
 
-warn "That's is newer than what this module was tested with ($openssl_vers). You should\n"
+warn "That's is newer than what this module was tested with ($openssl_vers\n"
+    . "or $openssl_vers2). You should\n"
     . "consider checking if there is a newer release of this module\n"
     . "available. Everything will probably work OK, though.\n"
-    if $maj > 0.9 || $min > 6;
+    if $maj > 0.9 || $min > 7;
 
-warn "openssl-0.9.6d and earlier versions have security flaws, see advisory at www.openssl.org, upgrading to openssl-$openssl_vers is recommended.\n"
-    if $maj eq '0.9' && $min == 6 && $letter lt 'e';
+warn "openssl-0.9.6i/0.9.7a and earlier versions have security flaws or bugs,\n"
+    . "see advisories at www.openssl.org, upgrading to openssl-$openssl_vers\n"
+    . "or openssl-$openssl_vers2 is recommended.\n"
+    if $maj eq '0.9' && (($min == 6 && $letter lt 'j') || ($min == 7 && $letter lt 'b'));
 
 open F, ">openssl_path" or die "Can't write ./openssl_path: $!";
 print F $exe_path;  # used by test.pl and examples/makecert.pl
@@ -148,22 +156,21 @@ if ($windows) {
 
     if( ($Config{cc} eq 'gcc') && ($Config{'cccdlflags'} =~ /-fpic/) ) {
 	warn "Enabling gcc -fPIC optimization\n";
-	($more_params{'CCCDLFLAGS'} = $Config{'cccdlflags'}) =~ s/-fpic/-fPIC/;
+	($more_params{CCCDLFLAGS} = $Config{'cccdlflags'}) =~ s/-fpic/-fPIC/;
     }
 }
 
-use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 my %configParams = (
     NAME	=> 'Net::SSLeay',
     VERSION_FROM => 'SSLeay.pm', # finds $VERSION
     DIR         => [ 'Net-SSLeay-Handle-0.50' ],
-    DEFINE      => '-DPERL5',   # perl-5.8/gcc-3.2 needs this
+    DEFINE      => '-DPERL5 -DOPENSSL_NO_KRB5',   # perl-5.8/gcc-3.2 needs first, RH9 latter
     DISTNAME    => 'Net_SSLeay.pm',
     dist        => { COMPRESS => 'gzip', SUFFIX => 'gz', },
     LIBS	=> ["-L$openssl_path -L$openssl_path/lib -L$openssl_path/out32dll $libs"],
-    INC 	=> "-I$openssl_path/include -I$openssl_path/inc32",
+    INC 	=> "-I$openssl_path/include -I$openssl_path/inc32 -I/usr/kerberos/include",
     OPTIMIZE    => $optimize,
 # Uncomment (and edit) following for debugging with gdb
 #    LIBS	=> ['-L/usr/src/openssl-0.9.3a -lssl -lcrypto'],
@@ -171,14 +178,6 @@ my %configParams = (
 #    OPTIMIZE   => '-g',
 	      %more_params,
 );
-
-use Config;
-if( ($Config{'cc'} eq 'gcc') && ($Config{'cccdlflags'} =~ /-fpic/) ) {
-    warn "Compiler is gcc and -fpic supplied. Tweaking it to -fPIC";
-    my $cccdlflags = $Config{'cccdlflags'};
-    $cccdlflags =~ s/-fpic/-fPIC/;
-    $configParams{'CCCDLFLAGS'} = $cccdlflags;
-};
 
 WriteMakefile(%configParams);
 

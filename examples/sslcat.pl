@@ -8,6 +8,7 @@ $host = 'localhost' unless $host = shift;
 $port = 443         unless $port = shift;
 $msg = "get \n\r\n" unless $msg = shift;
 
+$ENV{RND_SEED} = '1234567890123456789012345678901234567890';
 print "$host $port $msg\n";
 use Net::SSLeay qw(sslcat);
 print sslcat($host, $port, $msg);

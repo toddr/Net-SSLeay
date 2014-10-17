@@ -5,6 +5,7 @@ use Socket;
 use Net::SSLeay;
 Net::SSLeay::load_error_strings();
 Net::SSLeay::SSLeay_add_ssl_algorithms();
+$ENV{RND_SEED} = '1234567890123456789012345678901234567890';
 Net::SSLeay::randomize();
 
 ($dest_serv, $port, $msg) = @ARGV;      # Read command line
