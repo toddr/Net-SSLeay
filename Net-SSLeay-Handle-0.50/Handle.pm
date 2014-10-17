@@ -1,4 +1,4 @@
-# $Id: Handle.pm,v 1.2 2001/09/28 20:17:27 sampo Exp $
+# $Id: Handle.pm,v 1.3 2001/12/15 01:58:29 sampo Exp $
 
 package Net::SSLeay::Handle;
 
@@ -128,14 +128,31 @@ sub make_socket {
     $host ||= "localhost";
     $port ||= 443;
 
+    if ($Net::SSLeay::proxyhost) {
+
 #    $port = getservbyname($port, 'tcp') unless $port =~ /^\d+$/;
-    my $dest_ip = gethostbyname($host);
-    my $host_params = sockaddr_in($port, $dest_ip);
-    my $socket;                                                        # = \*S;
-    socket($socket, AF_INET, SOCK_STREAM, 0)    or die "socket: $!";
-    connect($socket, $host_params)              or die "connect: $!";
-    my $old_select = select($socket); $| = 1; select($old_select);
-    return $socket;
+	my $dest_ip = gethostbyname($Net::SSLeay::proxyhost);
+	my $host_params = sockaddr_in($Net::SSLeay::proxyport, $dest_ip);
+	my $socket;                                                        # = \*S;
+	socket($socket, AF_INET, SOCK_STREAM, 0)    or die "socket: $!";
+	connect($socket, $host_params)              or die "connect: $!";
+	my $old_select = select($socket); $| = 1; select($old_select);
+	
+	print $socket "CONNECT $host:$port HTTP/1.0$Net::SSLeay::proxyauth$$Net::SSLeay::CRLF$$Net::SSLeay::CRLF";
+	my $line = <$socket>;
+	return $socket;
+
+    } else {
+
+#    $port = getservbyname($port, 'tcp') unless $port =~ /^\d+$/;
+	my $dest_ip = gethostbyname($host);
+	my $host_params = sockaddr_in($port, $dest_ip);
+	my $socket;                                                        # = \*S;
+	socket($socket, AF_INET, SOCK_STREAM, 0)    or die "socket: $!";
+	connect($socket, $host_params)              or die "connect: $!";
+	my $old_select = select($socket); $| = 1; select($old_select);
+	return $socket;
+    }
 }
 
 sub _initialize {

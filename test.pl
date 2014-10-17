@@ -6,7 +6,7 @@
 # 20.8.2001, moved checking which perl to use higher up. Thanks
 #            Gordon Lack <gml4410@ggr.co.uk> --Sampo
 # 7.12.2001, added test cases for client certificates and proxy SSL --Sampo
-# $Id$
+# $Id: test.pl,v 1.3 2001/12/08 17:43:13 sampo Exp $
 #
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl test.pl'

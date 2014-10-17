@@ -112,3 +112,5 @@ Revision history for Perl extension Net::SSLeay.
 	  openssl API (per popular request and for completeness)
 1.10  7.12.2001,
 	- Added proxy support by Bruno De Wolf <bruno.dewolf@@pandora._be>
+1.11  14.12.2001,
+	- Added proxy support to Net::SSLeay::Handle, too

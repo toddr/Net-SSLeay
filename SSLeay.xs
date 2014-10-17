@@ -18,7 +18,7 @@
  *            SSL_*_methods --Sampo
  * 25.9.2001, added a big pile of methods by automatically grepping and diffing
  *            openssl headers and my module --Sampo
- * $Id: SSLeay.xs,v 1.4 2001/09/25 20:43:18 sampo Exp $
+ * $Id: SSLeay.xs,v 1.5 2001/12/08 17:43:13 sampo Exp $
  * 
  * The distribution and use of this module are subject to the conditions
  * listed in LICENSE file at the root of OpenSSL-0.9.6b

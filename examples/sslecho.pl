@@ -4,7 +4,7 @@
 # Copyright (c) 1996,1998 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
 # Date:   27.6.1996, 8.6.1998
 # 7.12.2001, added more support for client side certificate testing --Sampo
-# $Id$
+# $Id: sslecho.pl,v 1.2 2001/12/08 17:43:14 sampo Exp $
 #
 # Usage: ./sslecho.pl *port* *cert.pem* *key.pem*
 #
