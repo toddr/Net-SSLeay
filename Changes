@@ -168,3 +168,12 @@ Revision history for Perl extension Net::SSLeay.
 1.23  13.6.2003
 	- some minor tweaks by many, mainly for RH build
 	- memory leak and cleanup patches from Marian Jancar <mjancar@suse._cz>
+1.24  25.6.2003
+        - write_partial() return value patch from
+          Kim Minh Kaplan <kmkaplan@selfoffice._com>
+      3.8.2003
+        - applied version check fix to Net::SSLeay::Handle.pm
+          from Jason Rhinelander <jason@gossamer-threads._com>
+      17.8.2003
+	- new features: http and raw tcp support
+	- fixed apparent STDIO vs. sysread bug in proxy connect

@@ -1,6 +1,6 @@
 # Original by Jim Bowlin <jbowlin@linklint.org>
 # Maintenance fixes by Sampo Kellomaki <sampo@iki.fi>
-# $Id: test.pl,v 1.5 2002/06/05 18:25:46 sampo Exp $
+# $Id: test.pl,v 1.6 2003/06/13 21:14:41 sampo Exp $
 #
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl test.pl'

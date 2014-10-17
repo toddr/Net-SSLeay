@@ -7,7 +7,7 @@
 #            Gordon Lack <gml4410@ggr.co.uk> --Sampo
 # 7.12.2001, added test cases for client certificates and proxy SSL --Sampo
 # 28.5.2002, added contributed test cases for callbacks --Sampo
-# $Id: test.pl,v 1.6 2002/08/16 20:58:41 sampo Exp $
+# $Id: test.pl,v 1.8 2003/08/17 07:07:28 sampo Exp $
 #
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl test.pl'
@@ -84,7 +84,18 @@ print ">>>$res<<<\n" if $trace>1;
 print &test(4, $res =~ /failed/ && $res =~ /calls=1/);
 
 unless ($pid = fork) {
-    print "\tSpawning a test server on port 1212, pid=$$...\n" if $trace;
+    print "\tSpawning a TCP test server on port 1211, pid=$$...\n" if $trace;
+    $redir = $trace<3 ? '>>tcpecho.log 2>&1' : '';
+    exec("$perl examples/tcpecho.pl 1211 $redir");
+}
+sleep 1;  # if server is slow
+
+$res = `$perl examples/tcpcat.pl 127.0.0.1 1211 ssleay-tcp-test`;
+print $res if $trace>1;
+print &test('5tcp', ($res =~ /SSLEAY-TCP-TEST/));
+
+unless ($pid = fork) {
+    print "\tSpawning a SSL test server on port 1212, pid=$$...\n" if $trace;
     $redir = $trace<3 ? '>>sslecho.log 2>&1' : '';
     exec("$perl examples/sslecho.pl 1212 $cert_pem $key_pem $redir");
 }

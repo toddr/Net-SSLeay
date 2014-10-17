@@ -1,7 +1,7 @@
 # Net::SSLeay.pm - Perl module for using Eric Young's implementation of SSL
 #
 # Copyright (c) 1996-2003 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
-# $Id: SSLeay.pm,v 1.22 2003/02/18 04:08:41 sampo Exp $
+# $Id: SSLeay.pm,v 1.26 2003/08/17 07:44:47 sampo Exp $
 # Version 1.04, 31.3.1999
 # 30.7.1999, Tracking OpenSSL-0.9.3a changes, --Sampo
 # 31.7.1999, version 1.05 --Sampo
@@ -39,9 +39,12 @@
 # 19.9.2002, applied patch from Tim Engler <tim@burntcouch_.com>
 # 18.2.2003, applied patch from Toni Andjelkovic <toni@soth._at>
 # 13.6.2003, partially applied leak patch by Marian Jancar <mjancar@suse._cz>
+# 25.6.2003, write_partial() return value patch from 
+#            Kim Minh Kaplan <kmkaplan@selfoffice._com>
+# 17.8.2003, added http support :-) --Sampo
 #
 # The distribution and use of this module are subject to the conditions
-# listed in LICENSE file at the root of OpenSSL-0.9.6c
+# listed in LICENSE file at the root of OpenSSL-0.9.7b
 # distribution (i.e. free, but mandatory attribution and NO WARRANTY).
 
 package Net::SSLeay;
@@ -94,7 +97,7 @@ $Net::SSLeay::slowly = 0;  # don't change here, use
 $Net::SSLeay::random_device = '/dev/urandom';
 $Net::SSLeay::how_random = 512;
 
-$VERSION = '1.23';
+$VERSION = '1.24';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -408,12 +411,28 @@ $VERSION = '1.23';
 	do_https
 	get_https
         post_https
+	get_https4
+        post_https4
         sslcat
 	ssl_read_CRLF
 	ssl_read_all
 	ssl_read_until
 	ssl_write_CRLF
         ssl_write_all
+	get_http
+        post_http
+	get_httpx
+        post_httpx
+	get_http4
+        post_http4
+	get_httpx4
+        post_httpx4
+        tcpcat
+	tcp_read_CRLF
+	tcp_read_all
+	tcp_read_until
+	tcp_write_CRLF
+        tcp_write_all
         dump_peer_certificate
 	RSA_generate_key
 	RSA_free
@@ -499,7 +518,7 @@ __END__
 
 =head1 NAME
 
-Net::SSLeay - Perl extension for using OpenSSL or SSLeay
+Net::SSLeay - Perl extension for using OpenSSL
 
 =head1 SYNOPSIS
 
@@ -538,9 +557,10 @@ distribution that you might want to use instead. It has its own pod
 documentation.
 
 This module offers some high level convinience functions for accessing
-web pages on SSL servers, a sslcat() function for writing your own
-clients, and finally access to the SSL api of SSLeay/OpenSSL package so you
-can write servers or clients for more complicated applications.
+web pages on SSL servers (for symmetry, same API is offered for
+accessing http servers, too), a sslcat() function for writing your own
+clients, and finally access to the SSL api of SSLeay/OpenSSL package
+so you can write servers or clients for more complicated applications.
 
 For high level functions it is most convinient to import them to your
 main namespace as indicated in the synopsis.
@@ -1004,11 +1024,53 @@ Some BIO functions are available:
   $count = Net::SSLeay::BIO_wpending ($bio);
 
 =head2 Low level API
+
 Some very low level API functions are available:
     $client_random = &Net::SSLeay::get_client_random($ssl);
     $server_random = &Net::SSLeay::get_server_random($ssl);
     $session = &Net::SSLeay::get_session($ssl);
     $master_key = &Net::SSLeay::SESSION_get_master_key($session);
+
+=head2 HTTP (without S) API
+
+Over the years it has become clear that it would be convenient to use
+the light weight flavour API of Net::SSLeay also for normal http (see
+LWP for heavy weight object oriented approach). In fact it would be
+nice to be able to flip https on and off on the fly. Thus regular http
+support was evolved.
+
+  use Net::SSLeay, qw(get_http post_http tcpcat
+                      get_httpx post_httpx tcpxcat
+                      make_headers make_form);
+
+  ($page, $result, %headers) =
+         = get_http('www.bacus.pt', 443, '/protected.html',
+	      make_headers(Authorization =>
+			   'Basic ' . MIME::Base64::encode("$user:$pass",''))
+	      );
+
+  ($page, $response, %reply_headers)
+	 = post_http('www.bacus.pt', 443, '/foo.cgi', '',
+		make_form(OK   => '1',
+			  name => 'Sampo'
+		));
+
+  ($reply, $err) = tcpcat($host, $port, $request);
+
+  ($page, $result, %headers) =
+         = get_httpx($usessl, 'www.bacus.pt', 443, '/protected.html',
+	      make_headers(Authorization =>
+			   'Basic ' . MIME::Base64::encode("$user:$pass",''))
+	      );
+
+  ($page, $response, %reply_headers)
+	 = post_httpx($usessl, 'www.bacus.pt', 443, '/foo.cgi', '',
+		make_form(OK   => '1',  name => 'Sampo'	));
+
+  ($reply, $err, $server_cert) = tcpxcat($usessl, $host, $port, $request);
+
+As can be seen, the "x" family of APIs takes as first argument a flag
+which indicated whether SSL is used or not.
 
 =head1 EXAMPLES
 
@@ -1317,6 +1379,13 @@ this, thus you would have to program it using the low level API. A
 good place to start is to see how Net::SSLeay::http_cat() function
 is implemented.
 
+The high level API functions use a global file handle SSLCAT_S
+internally. This really should not be a problem because there is no
+way to interleave the high level API functions, unless you use threads
+(but threads are not very well supported in perl anyway (as of version
+5.6.1). However, you may run into problems if you call undocumented
+internal functions in an interleaved fashion.
+
 =head1 DIAGNOSTICS
 
 "Random number generator not seeded!!!"
@@ -1364,7 +1433,7 @@ Commercial support for Net::SSLeay may be obtained from
 
 =head1 VERSION
 
-This man page documents version 1.14, released on 25.3.2002.
+This man page documents version 1.24, released on 18.8.2003.
 
 There are currently two perl modules for using OpenSSL C
 library: Net::SSLeay (maintaned by me) and SSLeay (maintained by OpenSSL
@@ -1394,7 +1463,7 @@ http://www.openssl.org/support/).
 
 =head1 COPYRIGHT
 
-Copyright (c) 1996-2002 Sampo Kellomäki <sampo@symlabs.com>
+Copyright (c) 1996-2003 Sampo Kellomäki <sampo@symlabs.com>
 All Rights Reserved.
 
 Distribution and use of this module is under the same terms as the
@@ -1483,19 +1552,22 @@ sub open_tcp_connection {
 
 sub open_proxy_tcp_connection {
     my ($dest_serv, $port) = @_;
-    
     return open_tcp_connection($dest_serv, $port) if !$proxyhost;
     
     warn "Connect via proxy: $proxyhost:$proxyport" if $trace>2;
-    my @ret = open_tcp_connection($proxyhost, $proxyport);
-    return wantarray ? @ret : 0 if !$ret[0];  # Connection fail
+    my ($ret, $errs) = open_tcp_connection($proxyhost, $proxyport);
+    return wantarray ? (0, $errs) : 0 if !$ret;  # Connection fail
     
     warn "Asking proxy to connect to $dest_serv:$port" if $trace>2;
-    print SSLCAT_S "CONNECT $dest_serv:$port HTTP/1.0$proxyauth$CRLF$CRLF";
-    my $line = <SSLCAT_S>; 
+    #print SSLCAT_S "CONNECT $dest_serv:$port HTTP/1.0$proxyauth$CRLF$CRLF";
+    #my $line = <SSLCAT_S>;   # *** bug? Mixing stdio with syscall read?
+    ($ret, $errs) =
+	tcp_write_all("CONNECT $dest_serv:$port HTTP/1.0$proxyauth$CRLF$CRLF");
+    return wantarray ? (0,$errs) : 0 if $errs;
+    ($line, $errs) = tcp_read_until("\n", 1024);
     warn "Proxy response: $line" if $trace>2;
-    
-    return wantarray ? (1,undef) : 1;  # Success
+    return wantarray ? (0,$errs) : 0 if $errs;
+    return wantarray ? (1,'') : 1;  # Success
 }
 
 ###
@@ -1529,6 +1601,23 @@ sub ssl_read_all {
     return wantarray ? ($reply, $errs) : $reply;
 }
 
+sub tcp_read_all {
+    my ($how_much) = @_;
+    $how_much = 2000000000 unless $how_much;
+    my ($n, $got, $errs);
+    my $reply = '';
+
+    while ($how_much > 0) {
+	$n = sysread(SSLCAT_S,$got,$how_much);
+	warn "Read error: $! ($n,$how_much)" unless defined $n;
+	last if !$n;  # EOF
+	$how_much -= $n;
+	debug_read(\$reply, \$got) if $trace>1;
+	$reply .= $got;
+    }
+    return wantarray ? ($reply, $errs) : $reply;
+}
+
 sub ssl_write_all {
     my $ssl = $_[0];    
     my ($data_ref, $errs);
@@ -1545,8 +1634,10 @@ sub ssl_write_all {
 	#sleep 1; # *** DEBUG
 	warn "partial `$$data_ref'\n" if $trace>3;
 	$wrote = write_partial($ssl, $written, $to_write, $$data_ref);
-	$written += $wrote if defined $wrote;
-	$to_write -= $wrote if defined $wrote;
+	if (defined $wrote && ($wrote > 0)) {  # write_partial can return -1
+	    $written += $wrote;
+	    $to_write -= $wrote;
+	}
 	$vm = $trace>2 && $linux_debug ?
 	    (split ' ', `cat /proc/$$/stat`)[22] : 'vm_unknown';
 	warn "  written so far $wrote:$written bytes (VM=$vm)\n" if $trace>2;
@@ -1555,6 +1646,34 @@ sub ssl_write_all {
 	return (wantarray ? (undef, $errs) : undef) if $errs;
     }
     return wantarray ? ($written, $errs) : $written;
+}
+
+sub tcp_write_all {
+    my ($data_ref, $errs);
+    if (ref $_[0]) {
+	$data_ref = $_[0];
+    } else {
+	$data_ref = \$_[0];
+    }
+    my ($wrote, $written, $to_write) = (0,0, blength($$data_ref));
+    my $vm = $trace>2 && $linux_debug ?
+	(split ' ', `cat /proc/$$/stat`)[22] : 'vm_unknown';
+    warn "  write_all VM at entry=$vm\n" if $trace>2;
+    while ($to_write) {
+	warn "partial `$$data_ref'\n" if $trace>3;
+	$wrote = syswrite(SSLCAT_S, $$data_ref, $to_write, $written);
+	if (defined $wrote && ($wrote > 0)) {  # write_partial can return -1
+	    $written += $wrote;
+	    $to_write -= $wrote;
+	} elsif (!defined($wrote)) {
+	    warn "tcp_write_all: $!";
+	    return (wantarray ? (undef, "$!") : undef);
+	}
+	$vm = $trace>2 && $linux_debug ?
+	    (split ' ', `cat /proc/$$/stat`)[22] : 'vm_unknown';
+	warn "  written so far $wrote:$written bytes (VM=$vm)\n" if $trace>2;
+    }
+    return wantarray ? ($written, '') : $written;
 }
 
 ### from patch by Clinton Wong <clintdw@netcom.com>
@@ -1644,8 +1763,35 @@ sub ssl_read_until ($;$$) {
     return $reply;
 }
 
+sub tcp_read_until {
+    my ($delim, $max_length) = @_;
+    local $[;
+
+    # guess the delim string if missing
+    if ( ! defined $delim ) {           
+      if ( defined $/ && length $/  ) { $delim = $/ }
+      else { $delim = "\n" }      # Note: \n,$/ value depends on the platform
+    }
+    my $len_delim = length $delim;
+
+    my ($n,$got);
+    my $reply = '';
+    
+    while (!defined $max_length || length $reply < $max_length) {
+	$n = sysread(SSLCAT_S, $got, 1);  # one by one
+	warn "tcp_read_until: $!" if !defined $n;
+	debug_read(\$reply, \$got) if $trace>1;
+	last if !$n;  # EOF
+	$reply .= $got;
+	last if $len_delim
+	    && substr($reply, blength($reply)-$len_delim) eq $delim;
+    }
+    return $reply;
+}
+
 # ssl_read_CRLF($ssl [, $max_length])
 sub ssl_read_CRLF ($;$) { ssl_read_until($_[0], $CRLF, $_[1]) }
+sub tcp_read_CRLF { tcp_read_until($CRLF, $_[0]) }
 
 # ssl_write_CRLF($ssl, $message) writes $message and appends CRLF
 sub ssl_write_CRLF ($$) { 
@@ -1661,6 +1807,21 @@ sub ssl_write_CRLF ($$) {
   # else { $data_ref = \$_[1] }
   #my $message = $$data_ref . $CRLF;
   #return ssl_write_all($_[0], \$message);
+}
+
+sub tcp_write_CRLF { 
+  # the next line uses less memory but might use more network packets
+  return tcp_write_all($_[0]) + tcp_write_all($CRLF);
+
+  # the next few lines do the same thing at the expense of memory, with
+  # the chance that it will use less packets, since CRLF is in the original
+  # message and won't be sent separately.
+
+  #my $data_ref;
+  #if (ref $_[1]) { $data_ref = $_[1] }
+  # else { $data_ref = \$_[1] }
+  #my $message = $$data_ref . $CRLF;
+  #return tcp_write_all($_[0], \$message);
 }
 
 ### Quickly print out with whom we're talking
@@ -1806,6 +1967,44 @@ cleanup2:
     return wantarray ? ($got, $errs, $server_cert) : $got;
 }
 
+sub tcpcat { # address, port, message, $crt, $key --> reply / (reply,errs,cert)
+    my ($dest_serv, $port, $out_message) = @_;
+    my ($got, $errs, $written);
+    
+    ($got, $errs) = open_proxy_tcp_connection($dest_serv, $port);
+    return (wantarray ? (undef, $errs) : undef) unless $got;
+    
+    ### Connected. Exchange some data (doing repeated tries if necessary).
+        
+    warn "tcpcat $$: sending " . blength($out_message) . " bytes...\n"
+	if $trace==3;
+    warn "tcpcat $$: sending `$out_message' (" . blength($out_message)
+	. " bytes)...\n" if $trace>3;
+    ($written, $errs) = tcp_write_all($out_message);
+    goto cleanup unless $written;
+    
+    sleep $slowly if $slowly;  # Closing too soon can abort broken servers
+    CORE::shutdown SSLCAT_S, 1;  # Half close --> No more output, send EOF to server
+    
+    warn "waiting for reply...\n" if $trace>2;
+    ($got, $errs) = tcp_read_all($ssl);
+    warn "Got " . blength($got) . " bytes.\n" if $trace==3;
+    warn "Got `$got' (" . blength($got) . " bytes)\n" if $trace>3;
+
+cleanup:
+    close SSLCAT_S;    
+    return wantarray ? ($got, $errs) : $got;
+}
+
+sub tcpxcat {
+    my ($usessl, $site, $port, $req, $crt_path, $key_path) = @_;
+    if ($usessl) {
+	return sslcat($site, $port, $req, $crt_path, $key_path);
+    } else {
+	return tcpcat($site, $port, $req);
+    }
+}
+
 ###
 ### Basic request - response primitive, this is different from sslcat
 ###                 because this does not shutdown the connection.
@@ -1873,9 +2072,9 @@ sub https_cat { # address, port, message --> returns reply / (reply,errs,cert)
     
     ### Connected. Exchange some data (doing repeated tries if necessary).
         
-    warn "sslcat $$: sending " . blength($out_message) . " bytes...\n"
+    warn "https_cat $$: sending " . blength($out_message) . " bytes...\n"
 	if $trace==3;
-    warn "sslcat $$: sending `$out_message' (" . blength($out_message)
+    warn "https_cat $$: sending `$out_message' (" . blength($out_message)
 	. " bytes)...\n" if $trace>3;
     ($written, $errs) = ssl_write_all($ssl, $out_message);
     goto cleanup unless $written;
@@ -1893,6 +2092,41 @@ cleanup2:
     $errs .= print_errs('CTX_free');
     close SSLCAT_S;    
     return wantarray ? ($got, $errs, $server_cert) : $got;
+}
+
+sub http_cat { # address, port, message --> returns reply / (reply,errs,cert)
+    my ($dest_serv, $port, $out_message) = @_;
+    my ($got, $errs, $written);
+    
+    ($got, $errs) = open_proxy_tcp_connection($dest_serv, $port);
+    return (wantarray ? (undef, $errs) : undef) unless $got;
+	    
+    ### Connected. Exchange some data (doing repeated tries if necessary).
+        
+    warn "http_cat $$: sending " . blength($out_message) . " bytes...\n"
+	if $trace==3;
+    warn "http_cat $$: sending `$out_message' (" . blength($out_message)
+	. " bytes)...\n" if $trace>3;
+    ($written, $errs) = tcp_write_all($ssl, $out_message);
+    goto cleanup unless $written;
+    
+    warn "waiting for reply...\n" if $trace>2;
+    ($got, $errs) = tcp_read_all($ssl);
+    warn "Got " . blength($got) . " bytes.\n" if $trace==3;
+    warn "Got `$got' (" . blength($got) . " bytes)\n" if $trace>3;
+
+cleanup:
+    close SSLCAT_S;    
+    return wantarray ? ($got, $errs) : $got;
+}
+
+sub httpx_cat {
+    my ($usessl, $site, $port, $req, $crt_path, $key_path) = @_;
+    if ($usessl) {
+	return https_cat($site, $port, $req, $crt_path, $key_path);
+    } else {
+	return http_cat($site, $port, $req);
+    }
 }
 
 ###
@@ -1954,8 +2188,8 @@ sub make_headers {
     return $headers;
 }
 
-sub do_https3 {
-    my ($method, $site, $port, $path, $headers,
+sub do_httpx3 {
+    my ($usessl, $method, $site, $port, $path, $headers,
 	$content, $mime_type, $crt_path, $key_path) = @_;
     my ($response, $page, $h,$v);
 
@@ -1971,7 +2205,7 @@ sub do_https3 {
       . (defined $headers ? $headers : '') . "Accept: */*$CRLF$content";    
 
     my ($http, $errs, $server_cert)
-	= https_cat($site, $port, $req, $crt_path, $key_path);
+	= httpx_cat($usessl, $site, $port, $req, $crt_path, $key_path);
     return (undef, "HTTP/1.0 900 NET OR SSL ERROR$CRLF$CRLF$errs") if $errs;
     
     $http = '' if !defined $http;
@@ -1980,11 +2214,13 @@ sub do_https3 {
     return ($page, $response, $headers, $server_cert);
 }
 
+sub do_https3 { splice(@_,1,0) = 1; do_httpx3; }  # Legacy undocumented
+
 ### do_https2() is a legacy version in the sense that it is unable
 ### to return all instances of duplicate headers.
 
-sub do_https2 {
-    my ($page, $response, $headers, $server_cert) = &do_https3;
+sub do_httpx2 {
+    my ($page, $response, $headers, $server_cert) = &do_httpx3;
     X509_free($server_cert) if defined $server_cert;
     return ($page, $response,
 	    map( { ($h,$v)=/^(\S+)\:\s*(.*)$/; (uc($h),$v); }
@@ -1993,11 +2229,13 @@ sub do_https2 {
 	    );
 }
 
+sub do_https2 { splice(@_,1,0) = 1; do_httpx2; }  # Legacy undocumented
+
 ### Returns headers as a hash where multiple instances of same header
 ### are handled correctly.
 
-sub do_https4 {
-    my ($page, $response, $headers, $server_cert) = &do_https3;
+sub do_httpx4 {
+    my ($page, $response, $headers, $server_cert) = &do_httpx3;
     X509_free($server_cert) if defined $server_cert;
     my %hr = ();
     for my $hh (split /\s?\n/, $headers) {
@@ -2007,22 +2245,60 @@ sub do_https4 {
     return ($page, $response, \%hr);
 }
 
-sub get_https ($$$;***)  { do_https2(GET  => @_) }
-sub post_https ($$$;***) { do_https2(POST => @_) }
-sub put_https ($$$;***)  { do_https2(PUT  => @_) }
-sub head_https ($$$;***) { do_https2(HEAD => @_) }
+sub do_https4 { splice(@_,1,0) = 1; do_httpx4; }  # Legacy undocumented
 
-sub get_https3 ($$$;***)  { do_https3(GET  => @_) }
-sub post_https3 ($$$;***) { do_https3(POST => @_) }
-sub put_https3 ($$$;***)  { do_https3(PUT  => @_) }
-sub head_https3 ($$$;***) { do_https3(HEAD => @_) }
+# https
 
-sub get_https4 ($$$;***)  { do_https4(GET  => @_) }
-sub post_https4 ($$$;***) { do_https4(POST => @_) }
-sub put_https4 ($$$;***)  { do_https4(PUT  => @_) }
-sub head_https4 ($$$;***) { do_https4(HEAD => @_) }
+sub get_https  ($$$;***) { do_httpx2(GET  => 1, @_) }
+sub post_https ($$$;***) { do_httpx2(POST => 1, @_) }
+sub put_https  ($$$;***) { do_httpx2(PUT  => 1, @_) }
+sub head_https ($$$;***) { do_httpx2(HEAD => 1, @_) }
 
-### Legacy
+sub get_https3  ($$$;***) { do_httpx3(GET  => 1, @_) }
+sub post_https3 ($$$;***) { do_httpx3(POST => 1, @_) }
+sub put_https3  ($$$;***) { do_httpx3(PUT  => 1, @_) }
+sub head_https3 ($$$;***) { do_httpx3(HEAD => 1, @_) }
+
+sub get_https4  ($$$;***) { do_httpx4(GET  => 1, @_) }
+sub post_https4 ($$$;***) { do_httpx4(POST => 1, @_) }
+sub put_https4  ($$$;***) { do_httpx4(PUT  => 1, @_) }
+sub head_https4 ($$$;***) { do_httpx4(HEAD => 1, @_) }
+
+# http
+
+sub get_http  ($$$;***) { do_httpx2(GET  => 0, @_) }
+sub post_http ($$$;***) { do_httpx2(POST => 0, @_) }
+sub put_http  ($$$;***) { do_httpx2(PUT  => 0, @_) }
+sub head_http ($$$;***) { do_httpx2(HEAD => 0, @_) }
+
+sub get_http3  ($$$;***) { do_httpx3(GET  => 0, @_) }
+sub post_http3 ($$$;***) { do_httpx3(POST => 0, @_) }
+sub put_http3  ($$$;***) { do_httpx3(PUT  => 0, @_) }
+sub head_http3 ($$$;***) { do_httpx3(HEAD => 0, @_) }
+
+sub get_http4  ($$$;***) { do_httpx4(GET  => 0, @_) }
+sub post_http4 ($$$;***) { do_httpx4(POST => 0, @_) }
+sub put_http4  ($$$;***) { do_httpx4(PUT  => 0, @_) }
+sub head_http4 ($$$;***) { do_httpx4(HEAD => 0, @_) }
+
+# Either https or http
+
+sub get_httpx  ($$$;***) { do_httpx2(GET  => @_) }
+sub post_httpx ($$$;***) { do_httpx2(POST => @_) }
+sub put_httpx  ($$$;***) { do_httpx2(PUT  => @_) }
+sub head_httpx ($$$;***) { do_httpx2(HEAD => @_) }
+
+sub get_httpx3  ($$$;***) { do_httpx3(GET  => @_) }
+sub post_httpx3 ($$$;***) { do_httpx3(POST => @_) }
+sub put_httpx3  ($$$;***) { do_httpx3(PUT  => @_) }
+sub head_httpx3 ($$$;***) { do_httpx3(HEAD => @_) }
+
+sub get_httpx4  ($$$;***) { do_httpx4(GET  => @_) }
+sub post_httpx4 ($$$;***) { do_httpx4(POST => @_) }
+sub put_httpx4  ($$$;***) { do_httpx4(PUT  => @_) }
+sub head_httpx4 ($$$;***) { do_httpx4(HEAD => @_) }
+
+### Legacy, don't use
 # ($page, $respone_or_err, %headers) = do_https(...);
 
 sub do_https {

@@ -7,7 +7,7 @@
 # set up the client and how to make the server request the certificate.
 # This also demonstrates how you can communicate via arbitrary stream, not
 # just a TCP one.
-# $Id: cli-cert.pl,v 1.1 2001/12/08 17:43:14 sampo Exp $
+# $Id: cli-cert.pl,v 1.2 2003/06/13 21:14:41 sampo Exp $
 
 use Socket;
 use Net::SSLeay qw(die_now die_if_ssl_error);

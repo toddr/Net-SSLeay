@@ -3,7 +3,7 @@
 # Send tons of stuff over SSL connected by STDIO pipe.
 # This also demonstrates how you can communicate via arbitrary stream, not
 # just a TCP one.
-# $Id: stdio_bulk.pl,v 1.2 2001/12/08 17:43:14 sampo Exp $
+# $Id: stdio_bulk.pl,v 1.3 2003/06/13 21:14:41 sampo Exp $
 
 use Socket;
 use Net::SSLeay qw(die_now die_if_ssl_error);

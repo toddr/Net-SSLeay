@@ -42,7 +42,7 @@
  * 18.2.2003, RAND patch from Toni Andjelkovic <toni@soth._at>
  * 13.6.2003, applied SSL_X509_LOOKUP patch by Marian Jancar <mjancar@suse._cz>
  *
- * $Id: SSLeay.xs,v 1.13 2003/02/18 04:08:42 sampo Exp $
+ * $Id: SSLeay.xs,v 1.14 2003/06/13 21:14:40 sampo Exp $
  * 
  * The distribution and use of this module are subject to the conditions
  * listed in LICENSE file at the root of OpenSSL-0.9.6b

@@ -1,4 +1,4 @@
-# $Id: Handle.pm,v 1.8 2002/06/07 12:32:26 sampo Exp $
+# $Id: Handle.pm,v 1.9 2003/08/03 20:52:40 sampo Exp $
 
 package Net::SSLeay::Handle;
 
@@ -162,7 +162,7 @@ sub make_socket {
 
     my $dest_ip     = gethostbyname( $phost || $host);
     my $host_params = sockaddr_in($pport, $dest_ip);
-    my $socket = $^V lt 'v5.6.0' ? $class->_glob_ref("$host:$port") : undef;
+    my $socket = $^V ? $class->_glob_ref("$host:$port") : undef;
     
     socket($socket, &PF_INET(), &SOCK_STREAM(), 0) or die "socket: $!";
     connect($socket, $host_params)                 or die "connect: $!";

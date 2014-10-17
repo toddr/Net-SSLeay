@@ -1,7 +1,8 @@
 #!/usr/bin/perl
-# sslcat.pl - Send a message and receive a reply from server.
+# sslcat.pl - Send a message and receive a reply from SSL server.
 #
 # Copyright (c) 1996-2001 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
+# $Id: sslcat.pl,v 1.3 2003/08/17 07:07:28 sampo Exp $
 # Date:   7.6.1996
  
 $host = 'localhost' unless $host = shift;
