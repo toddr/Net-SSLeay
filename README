@@ -1,8 +1,9 @@
 README - Net::SSLeay Perl module for using OpenSSL
 
-31.7.1999, Sampo Kellomaki <sampo@iki.fi>
-Version: 1.05
+7.4.2001, Sampo Kellomaki <sampo@iki.fi>
+Version: 1.06
 
+1.06: fixed ssl_read_all() bug where input '0' would cause loop to exit
 1.05: fixed certificate gen at make test
 1.04: overhaul for OpenSSL-0.9.3b (try http://www.openssl.org/)
 
@@ -15,15 +16,16 @@ By popular demand...
 Prerequisites
 -------------
 
-perl5.005       though anything starting from perl5.002 probably works.
-OpenSSL-0.9.3a  (try http://www.openssl.org/) - nothing
-                earlier works and I do not guarantee that anything
-                later works either (but chances are good, if OpenSSL C API
-                stabilizes at this version). If the newest version does
-                not work, downgrade to OpenSSL-0.9.3a before asking questions.
-		Or check if there is a newer version of this module available.
+perl5.005 or perl-5.6.0
+                though anything starting from perl5.002 probably works.
+OpenSSL-0.9.3a or OpenSSL-0.9.6a
+                (try http://www.openssl.org/) - nothing
+                earlier works. This release has been tested with 0.9.6a and
+		in historical light it seems likely that future versions
+	  	will work as well (if major version number changes all bets
+		are off, though)
 
-Note: SSLeay is no loger supported. If you want to use Net::SSLeay with
+Note: SSLeay is no longer supported. If you want to use Net::SSLeay with
       SSLeay or early versions of OpenSSL, use version 1.03. The support
       for SSLeay was dropped due to nobody maintaining it (all active
       work goes on with OpenSSL) and due to incompatible API changes
@@ -36,10 +38,10 @@ Installing
 Unix:
 	# build OpenSSL as per instructions in that package
 
-	gunzip <Net_SSLeay.pm-1.04.tar.gz | tar xvf -
-	cd Net_SSLeay.pm-1.04
+	gunzip <Net_SSLeay.pm-1.06.tar.gz | tar xvf -
+	cd Net_SSLeay.pm-1.06
 	./Makefile.PL -t     # builds and tests it (3 compile warnings)
-	make install         # You probably have to be root to do this
+	make install         # You probably have to su to root to do this
 	perldoc Net::SSLeay  # optional, but highly recommended
 
 Windows:
@@ -48,7 +50,7 @@ Windows:
 	Win32, please mail the diffs/success reports to me at sampo@iki.fi
 	
 	Windows build was greatly helped by Anton Roeckseisen <anton@genua.de>
-
+	
 	read README.Win32
 
 You should also be able to use CPAN.pm to install this module if you like.
@@ -63,14 +65,13 @@ librsaref.a must be found in one of the locations searched by linker
 (-L switches). Usually this means that you have to rename rsaref.a to
 librsaref.a and copy it to suitable directory, e.g. /usr/local/ssl/lib.
 
-
 Problems (read this before sending mail)
 ----------------------------------------
 
 If you send me a question or make a bug report, please remeber
 
   - Your platform and OS version (i386 Linux, Sparc Solaris, etc) (uname -a)
-  - On Linux, please report glibc version as well)
+  - On Linux, please report glibc version as well
   - Net::SSLeay version
   - OpenSSL version (/usr/local/ssl/bin/openssl version)
   - ANSI C compiler make and version (gcc -v)
@@ -83,9 +84,17 @@ If build fails,
     copy from www.openssl.org and recompiling and installing it yourself
   - make sure you are not being confused by the fact that OpenSSL-0.9.3
     changed the location of include files to /usr/local/ssl/include/openssl/*
-    Consider deleting all bogus old headers
+    Consider deleting all old bogus headers
   - if using newer than supported OpenSSL, please downgrade to supported
-    version
+    version to see if it makes difference
+  - you must compile the module, perl, and openssl with the same compiler
+    and the same options. Use perl -V to check what options were used and
+    recompile openssl and my module accordingly
+  - never report bugs related to binary installs. First compile _yourself_
+    perl, openssl and my module, always using the same compiler and
+    compiler flags. Many distros are known to "know better" and thus
+    cause problems for their users. I'm not very sympathetic to having
+    to answer end user questions thus created.
   - send full output of `make clean; perl Makefile.PL -t'
 
 If make test fails, please
@@ -96,7 +105,7 @@ If make test fails, please
 
 If you have problems with a site, please
   - what site, what server software
-  - does it reproduce with s_client (try with something like
+  - does it reproduce with s_client, try with something like
 
    echo 'GET /' | /usr/local/ssl/bin/openssl s_client -connect www.bacus.pt:443
 
@@ -104,13 +113,20 @@ If you have problems with a site, please
 
 HP-UX is known to give some problems, please mail me or the mailing
 list so we can get these problems straightened. Hint: it has to do
-with dynamic loading.
+with dynamic loading. One user reports that adding `-lgcc' to EXTRALIBS
+and LD_LOAD_LIBS in Makefile fixes the problem. We have not received any
+confirmation whether this fix really works, but its worth a try. Another
+bag of problems is people installing against binary distributed
+perl and compiling the package with different cc or different options.
+Genereally this will never work. Please compile _yourself_ your perl,
+openssl, and the module, always with the same compiler and compiler flags.
 
 I have a report (schinder@pobox.com) of make test segfaulting on
-Linux-PPC. This still needs to be investigated.
+Linux-PPC. This still needs to be investigated. No recent information
+has been receivced.
 
 It seems perl5.004 (at least some versions) has bad xsub compiler which
-can make builds sometimes fail. Try upgrading to perl5.005 first.
+can make builds sometimes fail. Try upgrading to perl-5.6.0 first.
 
 "Random number generator not seeded!!!" This warning indicates that
     randomize() was not able to read /dev/random or /dev/urandom, possibly
@@ -126,8 +142,13 @@ comes with OpenSSL?
 
 My development environments are
 
-  i686, Linux-2.0.37, gcc-2.7.2.1, perl5.005_03  
-  i586, Linux-2.0.36, gcc-2.7.2.3, perl5.005_02
+  i686,   Linux-2.4.3,  gcc-2.92.2,   glibc-2.2,   perl-5.6.0,   openssl-0.9.6a
+  i686,   Linux-2.4.3,  gcc-2.92.2,   glibc-2.2,   perl5.005_02, openssl-0.9.6a
+  i686,   Linux-2.0.35, gcc-2.7.2.3,  glibc-2.0.6, perl5.005_02, openssl-0.9.5a
+  i586,   Linux-2.4.3,  gcc-2.92.2.1, glibc-2.2.2, perl-5.6.0,   openssl-0.9.6a
+  i586,   Linux-2.4.3,  gcc-2.92.2.1, glibc-2.2.2, perl5.005_03, openssl-0.9.6
+  i586,   Linux-2.4.3,  gcc-2.92.2.1, glibc-2.2.2, perl5.005_03, openssl-0.9.6a
+  Sun-U1, SunOS-5.6,    gcc-2.92.2,   libc2        perl-5.6.0
 
 Unfortunately I do not have access to other systems so you are
 somewhat on your own. Everything compiles without a warning (except
@@ -183,6 +204,24 @@ threads. Try not using the PerlIO abstraction.
 If you need to tweak build for some platform, please let me know
 so I can fix it. Patches and gdb session dumps are also welcome.
 
+License and Copying
+-------------------
+
+Copyright (c) 1996-2001 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
+
+Distribution and use of this module is under the same terms as the
+OpenSSL package itself (i.e. free, but mandatory attribution; NO
+WARRANTY). Please consult LICENSE file in the root of the OpenSSL
+distribution.
+
+While the source distribution of this perl module does not contain
+Eric's or OpenSSL's code, if you use this module you will use OpenSSL
+library. Please give Eric and OpenSSL team credit (as required by
+their licenses).
+
+And remember, you, and nobody else but you, are responsible for
+auditing this module and OpenSSL library for security problems,
+backdoors, and general suitability for your application.
 
 Recommended reading
 -------------------
@@ -191,13 +230,12 @@ Recommended reading
 password authentication is explained there. <===
 
 If you are newbie interested in grabbing web pages from https servers,
-please read HTTP documentation from <a
-href="http://www.w3c.org">http://www.w3c.org</a> before asking trivial
+please read HTTP documentation from http://www.w3c.org/ before asking trivial
 questions. That document also covers the basic-auth FAQ (URLs like
 http://user:pass@host). Do not ask questions about authentication before
 consulting the HTTP specification. HTTPS is just HTTP in SSL transport.
 
-If you are doing advanced stuff, and dont find documentation you need,
+If you are doing advanced stuff, and don't find documentation you need,
 please try to extrapolate from OpenSSL documentation (which unfortunately
 is quite sparse) and source code.
 
@@ -212,7 +250,9 @@ which gives excellent tutorial of the build process of XSUBs.
 
 Say `perldoc Net::SSLeay' _NOW_!
 
-To download OpenSSL, try URL http://www.openssl.org
+To download OpenSSL, try URL http://www.openssl.org/
+
+Of related interest may be `http://www.bacus.pt/Net_SSLeay/smime.html'
 
 Newer versions of this module can be found from CPAN/authors/id/SAMPO/,
 the home page is http://www.bacus.pt/Net_SSLeay/index.html

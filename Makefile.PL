@@ -1,26 +1,39 @@
 #!/usr/bin/perl
 # 23.6.1998, Sampo Kellomaki <sampo@iki.fi>
 # 30.7.1999, upgraded for OpenSSL-0.9.3a --Sampo
+# 7.4.2001,  upgraded to OpenSSL-0.9.6a --Sampo
 #
 # Configuration script for Net::SSLeay.pm
-#
-# Usage: ./Makefile.PL [-rsaref] [-m|-t] [SSLeay installation path]
-#              -m and -t will automatically build and test, respectively
-#              -d       builds and tests verbosely
-#              -rsaref  provides support for linking against rsaref
-# E.g:   ./Makefile.PL -d
+
+$usage = <<USAGE
+Usage: ./Makefile.PL [-rsaref] [-m|-t] [OpenSSL installation path]
+           -m and -t  will automatically build and test, respectively
+           -d         builds and tests verbosely
+           -rsaref    provides support for linking against rsaref
+E.g:   ./Makefile.PL -d
+USAGE
+    ;
+die $usage if grep /^--?[hv?]/i, @ARGV;
 
 $rsaref  = shift if $ARGV[0] eq '-rsaref';
 $make_it = shift if $ARGV[0] eq '-m';
 $test_it = shift if $ARGV[0] eq '-t';
 $debug = $test_it = shift if $ARGV[0] eq '-d';
-$openssl_path = shift || '/usr/local/ssl';
+if (@ARGV) {
+    $openssl_path = shift;
+} else {
+    # It seems at least Redhat installs OpenSSL in /usr ...
+    $openssl_path = '/usr' if -x '/usr/bin/openssl' | '/usr/sbin/openssl';
+    $openssl_path = '/opt/ssl' if -x '/opt/ssl/bin/openssl'
+	| '/opt/ssl/sbin/openssl';
+    $openssl_path = '/usr/local/ssl' if -x '/usr/local/ssl/bin/openssl';
+}
 
-$openssl_vers = '0.9.3a';
+$openssl_vers = '0.9.6a';
 
 print "Checking for OpenSSL-$openssl_vers or newer...\n";
 
-until (-x "$openssl_path/bin/openssl") {
+until (-x "$openssl_path/bin/openssl" | -x "$openssl_path/sbin/openssl") {
     print "I could not find your OpenSSL in `$openssl_path'\n";
     print "Please provide OpenSSL-$openssl_vers installation directory (get from\n"
 	. " http://www.openssl.org/ if you don't have it; please note that\n"
@@ -29,8 +42,11 @@ until (-x "$openssl_path/bin/openssl") {
     chomp $openssl_path;
 }
 
-$vers = `$openssl_path/bin/openssl version`
-    or die "Couldn't run `$openssl_path/bin/openssl' ($?)\n";
+$openssl_bin_path = -x "$openssl_path/bin/openssl" ?
+    "$openssl_path/bin" : "$openssl_path/sbin";
+
+$vers = `$openssl_bin_path/openssl version`
+    or die "Couldn't run `$openssl_bin_path/bin/openssl' ($?)\n";
 
 unless (($lib_name, $maj, $min, $letter) = $vers =~
 	/^(OpenSSL)\s+(\d+\.\d+)\.(\d+)([a-z]*)/) {
@@ -49,10 +65,10 @@ die "That's too old. Please upgrade to OpenSSL-$openssl_vers\n"
 warn "That's is newer than what this module was tested with ($openssl_vers). You should\n"
     . "consider checking if there is a newer release of this module\n"
     . "available. Everything will probably work OK, though.\n"
-    if $maj > 0.9 || $min > 3;
+    if $maj > 0.9 || $min > 6;
 
-open F, ">openssl_path" or die "Can't write openssl_path: $!\n";
-print F $openssl_path;
+open F, ">openssl_path" or die "Can't write ./openssl_path: $!";
+print F $openssl_bin_path;  # used by test.pl and examples/makecert.pl
 close F;
 
 $libs = $rsaref ? "-lssl -lRSAglue -lcrypto -lrsaref" : "-lssl -lcrypto";

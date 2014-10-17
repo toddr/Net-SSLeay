@@ -1,6 +1,6 @@
 /* SSLeay.xs - Perl module for using Eric Young's implementation of SSL
  *
- * Copyright (c) 1996-1999 Sampo Kellomaki <sampo@iki.fi>
+ * Copyright (c) 1996-2001 Sampo Kellomaki <sampo@iki.fi>
  * All Rights Reserved.
  *
  * 19.6.1998, Maintenance release to sync with SSLeay-0.9.0, --Sampo
@@ -10,9 +10,10 @@
  * 31.3.1999, Tracking OpenSSL-0.9.2b changes, dropping support for
  *            earlier versions
  * 30.7.1999, Tracking OpenSSL-0.9.3a changes, --Sampo
+ * 7.4.2001,  OpenSSL-0.9.6a update, --Sampo
  * 
  * The distribution and use of this module are subject to the conditions
- * listed in COPYRIGHT file at the root of Eric Young's SSLeay-0.9.0
+ * listed in LICENSE file at the root of OpenSSL-0.9.6a
  * distribution (i.e. free, but mandatory attribution and NO WARRANTY).
 
 Removed, perhaps permanently?
@@ -1889,7 +1890,7 @@ SSL_CTX_set_cipher_list(s,str)
      SSL_CTX *              s
      char *             str
 
-char *
+const char *
 SSL_get_cipher_list(s,n)
      SSL *              s
      int                n
@@ -1899,7 +1900,7 @@ SSL_set_cipher_list(s,str)
      SSL *              s
      char *       str
 
-char *
+const char *
 SSL_get_cipher(s)
      SSL *              s
 
@@ -2154,6 +2155,10 @@ RAND_load_file(file_name, how_much)
 int
 RAND_write_file(file_name)
      char *  file_name
+
+int
+RAND_egd(path)
+     char *  path
 
 #define REM40 "Minimal X509 stuff..., this is a bit ugly and should be put in its own modules Net::SSLeay::X509.pm"
 

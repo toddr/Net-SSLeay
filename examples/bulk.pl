@@ -5,6 +5,7 @@
 
 use Socket;
 use Net::SSLeay qw(die_now die_if_ssl_error);
+Net::SSLeay::randomize();
 Net::SSLeay::load_error_strings();
 Net::SSLeay::ERR_load_crypto_strings();
 Net::SSLeay::SSLeay_add_ssl_algorithms();

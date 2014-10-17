@@ -1,8 +1,7 @@
 #!/usr/bin/perl
 # sslcat.pl - Send a message and receive a reply from server.
 #
-# Copyright (c) 1996 Neuronio, Lda. All Rights Reserved.
-# Author: Sampo Kellomaki <sampo@iki.fi>
+# Copyright (c) 1996-2001 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
 # Date:   7.6.1996
  
 $host = 'localhost' unless $host = shift;

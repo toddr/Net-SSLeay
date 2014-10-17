@@ -75,3 +75,8 @@ Revision history for Perl extension Net::SSLeay.
 	- callbacks fixed and tested to work
 	- added Authentication examples
 	- added couple more X509_STORE_CTX family functions
+1.06  7.4.2001, --Sampo
+	- fixed ssl_read_all bug where `0' input was mistaken for EOF.
+	- openssl-0.9.6a fixes (e.g. random number generator init)
+	- various minor fixes subnitted by fellow netters (sorry, I lost track
+	  of your names so I do not name the contributors here)

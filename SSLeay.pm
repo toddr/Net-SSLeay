@@ -4,9 +4,10 @@
 # Version 1.04, 31.3.1999
 # 30.7.1999, Tracking OpenSSL-0.9.3a changes, --Sampo
 # 31.7.1999, version 1.05 --Sampo
+# 7.4.2001,  fixed input error upon 0, OpenSSL-0.9.6a, version 1.06 --Sampo
 #
 # The distribution and use of this module are subject to the conditions
-# listed in COPYRIGHT file at the root of Eric Young's SSLeay-0.9.0
+# listed in LICENSE file at the root of OpenSSL-0.9.6a
 # distribution (i.e. free, but mandatory attribution and NO WARRANTY).
 
 package Net::SSLeay;
@@ -15,20 +16,25 @@ use strict;
 use Carp;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD);
 use Socket;
+use Errno;
 
 require Exporter;
 require DynaLoader;
-require AutoLoader;
+use AutoLoader;
 
 # 0=no warns, 1=only errors, 2=ciphers, 3=progress, 4=dump data
-$Net::SSLeay::trace = 1;
+$Net::SSLeay::trace = 0;  # Do not change here, use
+                          # $Net::SSLeay::trace = [1-4]  in caller
 
-# 2 = insist on v2 SSL protocol, 3 = insist on v3 SSL, undef = guess (v23)
-#$Net::SSLeay::ssl_version = 3; 
+# 2 = insist on v2 SSL protocol, 3 = insist on v3 SSL, 0 or undef = guess (v23)
+#$Net::SSLeay::ssl_version = 3;
+#define to enable the "cat /proc/$$/stat" stuff
+$Net::SSLeay::linux_debug = 0;
 
 # Number of seconds to sleep after sending message and before half
 # closing connection. Useful with antiquated broken servers.
-$Net::SSLeay::slowly = 0;
+$Net::SSLeay::slowly = 0;  # don't change here, use 
+                           # Net::SSLeay::version=[2,3,0] in caller
 
 # RANDOM NUMBER INITIALIZATION
 #
@@ -44,7 +50,7 @@ $Net::SSLeay::slowly = 0;
 $Net::SSLeay::random_device = '/dev/urandom';
 $Net::SSLeay::how_random = 512;
 
-$VERSION = '1.05';
+$VERSION = '1.06';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -341,12 +347,12 @@ sub AUTOLOAD {
     ($constname = $AUTOLOAD) =~ s/.*:://;
     my $val = constant($constname, @_ ? $_[0] : 0);
     if ($! != 0) {
-	if ($! =~ /Invalid/) {
+	if ($! =~ /((Invalid)|(not valid))/i || $!{EINVAL}) {
 	    $AutoLoader::AUTOLOAD = $AUTOLOAD;
 	    goto &AutoLoader::AUTOLOAD;
 	}
 	else {
-		croak "Your vendor has not defined SSLeay macro $constname";
+	  croak "Your vendor has not defined SSLeay macro $constname";
 	}
     }
     eval "sub $AUTOLOAD { $val }";
@@ -398,7 +404,7 @@ __END__
 
 =head1 NAME
 
-Net::SSLeay - Perl extension for using OpenSSL
+Net::SSLeay - Perl extension for using OpenSSL or SSLeay
 
 =head1 SYNOPSIS
 
@@ -665,6 +671,7 @@ as I was lazy and needed them, the following kludges are implemented:
     Net::SSLeay::RAND_cleanup();
     Net::SSLeay::RAND_load_file($file_name, $how_many_bytes);
     Net::SSLeay::RAND_write_file($file_name);
+    Net::SSLeay::RAND_egd($path);
 
 Actually you should consider using the following helper functions:
 
@@ -907,6 +914,11 @@ set global variable
 
     $Net::SSLeay::slowly = 1;   # Add sleep so broken servers can keep up
 
+http/1.1 is not supported. Specifically this module does not know to
+issue or serve multiple http requests per connection. This is a serious
+short coming, but using SSL session cache on your server helps to
+alleviate the CPU load somewhat.
+
 =head1 DIAGNOSTICS
 
 "Random number generator not seeded!!!"
@@ -967,11 +979,11 @@ http://www.openssl.org/support/).
 
 =head1 COPYRIGHT
 
-Copyright (c) 1996-1999 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
+Copyright (c) 1996-2001 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
 
 Distribution and use of this module is under the same terms as the
 OpenSSL package itself (i.e. free, but mandatory attribution; NO
-WARRANTY). Please consult COPYRIGHT file in the root of the SSLeay
+WARRANTY). Please consult LICENSE file in the root of the OpenSSL
 distribution.
 
 While the source distribution of this perl module does not contain
@@ -985,8 +997,9 @@ backdoors, and general suitability for your application.
 
 =head1 SEE ALSO
 
-  Net_SSLeay/examples                      - Example servers and a clients
+  ./Net_SSLeay/examples                    - Example servers and a clients
   <http://www.bacus.pt/Net_SSLeay/index.html>  - Net::SSLeay.pm home
+  <http://www.bacus.pt/Net_SSLeay/smime.html>  - Another module using OpenSSL
   <http://www.openssl.org/>                - OpenSSL source, documentation, etc
   openssl-users-request@openssl.org        - General OpenSSL mailing list
   <http://home.netscape.com/newsref/std/SSL.html>  - SSL Draft specification
@@ -1015,13 +1028,13 @@ sub open_tcp_connection {
     }
     my $sin = sockaddr_in($port, $dest_serv_ip);
     
-    printf STDERR "Opening connection to $dest_serv:$port (%x)\n",
-    $dest_serv_ip if $trace>2;
+    warn "Opening connection to $dest_serv:$port (" .
+	inet_ntoa($dest_serv_ip) . ")\n" if $trace>2;
     
     my $proto = getprotobyname('tcp');
     if (socket (SSLCAT_S, &PF_INET, &SOCK_STREAM, $proto)) {
         warn "next connect\n" if $trace>3;
-        if (connect (SSLCAT_S, $sin)) {
+        if (CORE::connect (SSLCAT_S, $sin)) {
             my $old_out = select (SSLCAT_S); $| = 1; select ($old_out);
             warn "connected to $dest_serv, $port\n" if $trace>3;
             return wantarray ? (1, undef) : 1; # Success
@@ -1040,19 +1053,20 @@ sub open_tcp_connection {
 sub ssl_read_all {
     my ($ssl,$how_much) = @_;
     $how_much = 2000000000 unless $how_much;
-    my ($reply, $got, $errs);
+    my ($got, $errs);
+    my $reply = '';
     do {
 	$got = Net::SSLeay::read($ssl,$how_much);
 	last if $errs = print_errs('SSL_read');
 	$how_much -= length($got);
-	$vm = (split ' ', `cat /proc/$$/stat`)[22] if $trace>2;  # Linux Only?
+	my $vm = $trace>2 && $linux_debug ?
+	    (split ' ', `cat /proc/$$/stat`)[22] : 'vm_unknown';
 	warn "  got " . length($got) . ':'
 	    . length($reply) . " bytes (VM=$vm).\n" if $trace == 3;
 	warn "  got `$got' (" . length($got) . ':'
 	    . length($reply) . " bytes, VM=$vm)\n" if $trace>3;
-	$reply .= $got;
-	#$reply = $got;  # *** DEBUG
-    } while ($got && $how_much > 0);
+	$reply .= $got if defined($got);
+    } while ($got ne '' && $how_much > 0);
     return wantarray ? ($reply, $errs) : $reply;
 }
 
@@ -1065,18 +1079,22 @@ sub ssl_write_all {
 	$data_ref = \$_[1];
     }
     my ($wrote, $written, $to_write) = (0,0, length($$data_ref));
-    $vm = (split ' ', `cat /proc/$$/stat`)[22] if $trace>2;  # Linux Only?
+    my $vm = $trace>2 && $linux_debug ?
+	(split ' ', `cat /proc/$$/stat`)[22] : 'vm_unknown';
     warn "  write_all VM at entry=$vm\n" if $trace>2;
     do {
 	#sleep 1; # *** DEBUG
 	warn "partial `$$data_ref'\n" if $trace>3;
 	$wrote = write_partial($ssl, $written, $to_write, $$data_ref);
-	$written += $wrote;
-	$to_write -= $wrote;
-	$vm = (split ' ', `cat /proc/$$/stat`)[22] if $trace>2;  # Linux Only?
+	$written += $wrote if defined $wrote;
+	$to_write -= $wrote if defined $wrote;
+	$vm = $trace>2 && $linux_debug ?
+	    (split ' ', `cat /proc/$$/stat`)[22] : 'vm_unknown';
 	warn "  written so far $wrote:$written bytes (VM=$vm)\n" if $trace>2;
-	return (wantarray ? (undef, $errs) : undef)
-	    if $errs = print_errs('SSL_write');
+	
+	my $p_errs = print_errs('SSL_write');
+	$errs .= $p_errs if defined $p_errs;
+       return (wantarray ? (undef, $errs) : undef) if $errs;
     } while ($to_write);
     return wantarray ? ($written, $errs) : $written;
 }
@@ -1087,7 +1105,7 @@ sub ssl_write_all {
 #  if $delimit missing, use $/ if it exists, otherwise use \n
 #  read until delimiter reached, up to $max_length chars if defined
 
-sub ssl_read_until {
+sub ssl_read_until ($;$$) {
     my ($ssl,$delimit, $max_length) = @_;
 
     # guess the delimit string if missing
@@ -1097,17 +1115,19 @@ sub ssl_read_until {
     }
     my $length_delimit = length $delimit;
 
-    my ($reply, $got);
+    my ($got);
+    my $reply = '';
     do {
         $got = Net::SSLeay::read($ssl,1);
         last if print_errs('SSL_read');
-        $vm = (split ' ', `cat /proc/$$/stat`)[22] if $trace>1;  # Linux Only?
+	my $vm = $trace>2 && $linux_debug ?
+	    (split ' ', `cat /proc/$$/stat`)[22] : 'vm_unknown';
         warn "  got " . length($got) . ':'
             . length($reply) . " bytes (VM=$vm).\n" if $trace == 2;
         warn "  got `$got' (" . length($got) . ':'
             . length($reply) . " bytes, VM=$vm)\n" if $trace>2;
         $reply .= $got;
-    } while ($got &&
+    } while ($got ne '' &&
               ( $length_delimit==0 || substr($reply, length($reply)-
                 $length_delimit) ne $delimit
               ) &&
@@ -1117,10 +1137,10 @@ sub ssl_read_until {
 }
 
 # ssl_read_CRLF($ssl [, $max_length])
-sub ssl_read_CRLF { ssl_read_until($_[0], chr(13).chr(10), $_[1]) }
+sub ssl_read_CRLF ($;$) { ssl_read_until($_[0], chr(13).chr(10), $_[1]) }
 
 # ssl_write_CRLF($ssl, $message) writes $message and appends CRLF
-sub ssl_write_CRLF { 
+sub ssl_write_CRLF ($$) { 
   # the next line uses less memory but might use more network packets
   return ssl_write_all($_[0], $_[1]) + ssl_write_all($_[0], chr(13).chr(10));
 
@@ -1137,29 +1157,42 @@ sub ssl_write_CRLF {
 
 ### Quickly print out with whom we're talking
 
-sub dump_peer_certificate {
+sub dump_peer_certificate ($) {
     my ($ssl) = @_;
     my $cert = get_peer_certificate($ssl);
-    return if print_errs('get_peer_certificate');
-    return "Subject Name: "
-	. X509_NAME_oneline(X509_get_subject_name($cert)) . "\n"
-        . "Issuer  Name: "
-	. X509_NAME_oneline(X509_get_issuer_name($cert))  . "\n";
+    my $p_errs = print_errs('get_peer_certificate');
+    return if defined($p_errs);
+    print "no cert defined\n" if !defined($cert);
+    # Cipher=NONE with empty cert fix
+    if (defined($cert) && $cert == 0) {
+	print "cert = `$cert'\n";
+	return "Subject Name: undefined\nIssuer  Name: undefined\n";
+    } else {
+	return 'Subject Name: '
+	    . X509_NAME_oneline(X509_get_subject_name($cert)) . "\n"
+		. 'Issuer  Name: '
+		    . X509_NAME_oneline(X509_get_issuer_name($cert))  . "\n";
+    }
 }
 
 ### Arrange some randomness for eay PRNG
 
-sub randomize {
-    my ($rn_seed_file, $seed) = @_;
+sub randomize (;$$) {
+    my ($rn_seed_file, $seed, $egd_path) = @_;
+    my $rnsf = defined($rn_seed_file) && -r $rn_seed_file;
 
+    $egd_path = $ENV{'EGD_PATH'} if $ENV{'EGD_PATH'};
+    $egd_path = '/tmp/entropy'   unless $egd_path;
+    
     RAND_seed(rand() + $$);  # Stir it with time and pid
     
-    unless (-r $rn_seed_file || -r $Net::SSLeay::random_device || $seed) {
-	warn "Random number generator not seeded!!!\n" if $trace;
+    unless ($rnsf || -r $Net::SSLeay::random_device || $seed || -S $egd_path) {
+	warn "Random number generator not seeded!!!" if $trace;
     }
     
-    RAND_load_file($rn_seed_file, -s _) if -r $rn_seed_file;
+    RAND_load_file($rn_seed_file, -s _) if -r $rnsf;
     RAND_seed($seed) if $seed;
+    RAND_egd($egd_path) if -S $egd_path;
     RAND_load_file($Net::SSLeay::random_device, $Net::SSLeay::how_random/8)
 	if -r $Net::SSLeay::random_device;
 }
@@ -1200,6 +1233,21 @@ sub sslcat { # address, port, message --> returns reply
     goto cleanup if $errs = print_errs('set_fd');
     
     warn "Entering SSL negotiation phase...\n" if $trace>2;
+
+    if ($trace>2) {
+	my $i = 0;
+	my $p = '';
+	my $cipher_list = 'Cipher list: ';
+	$p=Net::SSLeay::get_cipher_list($ssl,$i);
+	$cipher_list .= $p if $p;
+	do {
+	    $i++;
+	    $cipher_list .= ', ' . $p if $p;
+	    $p=Net::SSLeay::get_cipher_list($ssl,$i);
+	} while $p;
+	$cipher_list .= '\n';
+	warn $cipher_list;
+    }
     
     $got = Net::SSLeay::connect($ssl);
     warn "SSLeay connect returned $got\n" if $trace>2;
@@ -1245,7 +1293,7 @@ cleanup2:
 
 sub https_cat { # address, port, message --> returns reply
     my ($dest_serv, $port, $out_message) = @_;
-    my ($ctx, $ssl, $got, $errs, $written);
+    my ($ctx, $ssl, $got, $errs, $written, $p_errs);
 
     ($got, $errs) = open_tcp_connection($dest_serv, $port, \$errs);
     return (wantarray ? (undef, $errs) : undef) unless $got;
@@ -1276,8 +1324,23 @@ sub https_cat { # address, port, message --> returns reply
     
     warn "Entering SSL negotiation phase...\n" if $trace>2;
     
+    if ($trace>2) {
+	my $i = 0;
+	my $p = '';
+	my $cipher_list = 'Cipher list: ';
+	$p=Net::SSLeay::get_cipher_list($ssl,$i);
+	$cipher_list .= $p if $p;
+	do {
+	    $i++;
+	    $cipher_list .= ', ' . $p if $p;
+	    $p=Net::SSLeay::get_cipher_list($ssl,$i);
+	} while $p;
+	$cipher_list .= '\n';
+	warn $cipher_list;
+    }
+
     $got = Net::SSLeay::connect($ssl);
-    warn "SSLeay connect returned $got\n" if $trace>2;
+    warn "SSLeay connect failed" if $trace>2 && $got==0;
     goto cleanup if $errs = print_errs('SSL_connect');
     
     if ($trace>1) {	    
@@ -1300,12 +1363,14 @@ sub https_cat { # address, port, message --> returns reply
     warn "Got " . length($got) . " bytes.\n" if $trace==3;
     warn "Got `$got' (" . length($got) . " bytes)\n" if $trace>3;
 
-cleanup:	    
+cleanup:
     free ($ssl);
-    $errs .= print_errs('SSL_free');
+    $p_errs = print_errs('SSL_free');
+    $errs .= $p_errs if defined $p_errs;
 cleanup2:
     CTX_free ($ctx);
-    $errs .= print_errs('CTX_free');
+    $p_errs = print_errs('CTX_free');
+    $errs .= $p_errs if defined $p_errs;
     close SSLCAT_S;    
     return wantarray ? ($got, $errs) : $got;
 }
@@ -1314,7 +1379,7 @@ cleanup2:
 ### Easy set up of private key and certificate
 ###
 
-sub set_server_cert_and_key {
+sub set_server_cert_and_key ($$$) {
     my ($ctx, $cert_path, $key_path) = @_;    
     my $errs = '';
     # Following will ask password unless private key is not encrypted
@@ -1366,11 +1431,12 @@ sub do_https {
 	$content = "\r\n\r\n";
     }
     my $req = "$method $path HTTP/1.0\r\nHost: $site:$port\r\n"
-      . $headers . "Accept: */*\r\n$content";    
+      . (defined $headers ? $headers : '') . "Accept: */*\r\n$content";    
 
     ($http, $errs) = https_cat($site, $port, $req);    
     return (undef, "HTTP/1.0 900 NET OR SSL ERROR\r\n\r\n$errs") if $errs;
     
+    $http = '' if !defined $http;
     ($headers, $page) = split /\s?\n\s?\n/, $http, 2;
     ($response, $headers) = split /\s?\n/, $headers, 2;
     return ($page, $response,
@@ -1380,12 +1446,12 @@ sub do_https {
 	    );
 }
 
-sub get_https {
+sub get_https ($$$;***) {
     my ($site, $port, $path, $headers, $content, $mime) = @_;
     return do_https($site, $port, $path, 'GET', $headers, $content, $mime);
 }
 
-sub post_https {
+sub post_https ($$$;***) {
     my ($site, $port, $path, $headers, $post_str, $mime) = @_;
     return do_https($site, $port, $path, 'POST', $headers, $post_str, $mime);
 }

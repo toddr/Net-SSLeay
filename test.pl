@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 # 24.6.1998, 8.7.1998, Sampo Kellomaki <sampo@iki.fi>
 # 31.7.1999, added more tests --Sampo
+# 7.4.2001,  upgraded to OpenSSL-0.9.6a --Sampo
 #
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl test.pl'
@@ -13,18 +14,20 @@ use Config;
 # (It may become useful if the test is moved to ./t subdirectory.)
 
 BEGIN {print "1..16\n";}
-END {print "not ok 1\n" unless $loaded;}
+END {print "not ok 1\n" unless $::loaded;}
+select(STDOUT); $|=1;
 use Net::SSLeay qw(die_now die_if_ssl_error);
-$loaded = 1;
+$::loaded = 1;
 print "ok 1\n";
 
 ######################### End of black magic.
 
-$trace = $ENV{TEST_TRACE} || 1;  # 0=silent, 1=verbose, 2=debugging
+my $trace = $ENV{TEST_TRACE} || 1;  # 0=silent, 1=verbose, 2=debugging
 
-$mb = 1;     # size of the bulk tests
-$errors = 0;
-$silent = $trace>1 ? '' : '>/dev/null 2>/dev/null';
+my $mb = 1;     # size of the bulk tests
+my $errors = 0;
+my $silent = $trace>1 ? '' : '>/dev/null 2>/dev/null';
+my ($pid,$redir,$res,$bytes,$secs);
 
 sub test {
     my ($num, $test) = @_;
@@ -36,26 +39,26 @@ sub test {
 &Net::SSLeay::SSLeay_add_ssl_algorithms();
 print &test(2, &Net::SSLeay::hello == 1);
 
-$cert_pem = "examples/cert.pem";
-$key_pem =  "examples/key.pem";
+my $inc = join ' ', map("-I$_", @INC);
+#$perl = "perl $inc";
+my $perl = "$Config{perlpath} $inc";
+print "Using perl at `$perl'\n" if $trace>1;
+
+my $cert_pem = "examples/cert.pem";
+my $key_pem =  "examples/key.pem";
 
 unless (-r $cert_pem && -r $key_pem) {
     print "### Making self signed certificate just for these tests...\n"
 	if $trace;
     
-    open F, "openssl_path" or die "Can't read `openssl_path': $!\n";
+    open F, "openssl_path" or die "Can't read `./openssl_path': $!\n";
     $ssleay_path = <F>;
     close F;
     chomp $ssleay_path;
 
-    system "examples/makecert.pl examples $ssleay_path $silent";
+    system "$perl examples/makecert.pl examples $ssleay_path $silent";
     print "    certificate done.\n\n" if $trace;
 }
-
-$inc = join ' ', map("-I$_", @INC);
-#$perl = "perl $inc";
-$perl = "$Config{perlpath} $inc";
-print "Using perl at `$perl'\n" if $trace>1;
 
 unless ($pid = fork) {
     print "\tSpawning a test server on port 1212, pid=$$...\n" if $trace;
@@ -97,15 +100,14 @@ $secs = (time - $secs) || 1;
 print "\t\t...took $secs secs (" . int($mb*1024/$secs). " KB/s)\n" if $trace;
 print &test(7, ($res =~ /OK\s*$/));
 
-@sites = qw(
+my @sites = qw(
 www.openssl.org
-www.apache-ssl.org
 www.cdw.com
-www.rsa.com
-developer.netscape.com
+app.iplanet.com
 banking.wellsfargo.com
 secure.worldgaming.net
 www.engelschall.com
+www.ubs.com
 	    );
 if ($trace) {
 print "    Now about to contact external sites...\n\twww.bacus.pt\n";
@@ -121,15 +123,41 @@ sleep 5;
 print &test('8 www.bacus.pt', &Net::SSLeay::sslcat("www.bacus.pt", 443,
 				 "get\n\r\n\r") =~ /<TITLE>/);
 
-sub test_site {
+sub test_site ($$) {
     my ($test_nro, $site) = @_;
     my ($p, $r) = ('','');
+    my %h;
+    warn "Trying $site...\n";
+    $Net::SSLeay::trace=0;
+    $Net::SSLeay::version=0;
+    
     ($p, $r, %h) = Net::SSLeay::get_https($site, 443, '/');
+    if (!defined($h{SERVER})) {
+	print &test("$test_nro $site ($r)", scalar($r =~ /^HTTP\/1/s));
+	print "\t$site, initial attempt with auto negotiate failed\n";
+
+	$Net::SSLeay::trace=3;
+	$Net::SSLeay::version=2;
+	print "\tset version to 2\n";
+	($p, $r, %h) = Net::SSLeay::get_https($site, 443, '/');
+	
+	$Net::SSLeay::version=3;
+	print "\tset version to 3\n";
+	($p, $r, %h) = Net::SSLeay::get_https($site, 443, '/');
+	$Net::SSLeay::trace=0;
+    }
+    
     print join '', map("\t$_=>$h{$_}\n", sort keys %h) if $trace>1;
-    print &test("$test_nro $site ($h{SERVER})", scalar($r =~ /^HTTP\/1/s));
+
+    if (defined($h{SERVER})) {
+	print &test("$test_nro $site ($h{SERVER})", scalar($r =~ /^HTTP\/1/s));
+    } else {
+	print &test("$test_nro $site ($r)", scalar($r =~ /^HTTP\/1/s));
+    }
 }
 
-$i = 9;
+my $i = 9;
+my $s;
 for $s (@sites) {
     &test_site($i++, $s );
 }

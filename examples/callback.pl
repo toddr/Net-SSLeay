@@ -1,6 +1,7 @@
 #!/usr/local/bin/perl -w
 # callback.pl - 8.6.1998, Sampo Kellomaki <sampo@iki.fi>
 # 31.7.1999, fixed callback args, --Sampo 
+# 7.4.2001,  adapted to 0.9.6a and numerous bug reports --Sampo
 #
 # Test and demonstrate verify call back
 #
@@ -9,11 +10,14 @@
 
 use Socket;
 use Net::SSLeay qw(die_now die_if_ssl_error);
+Net::SSLeay::randomize();
 Net::SSLeay::load_error_strings();
 Net::SSLeay::ERR_load_crypto_strings();
 Net::SSLeay::SSLeay_add_ssl_algorithms();
 
 ($dest_serv, $port, $cert_dir) = @ARGV;      # Read command line
+
+my $callback_called = 0;
 
 $ctx = Net::SSLeay::CTX_new() or die_now("Failed to create SSL_CTX $!");
 #Net::SSLeay::CTX_set_default_verify_paths($ctx);
@@ -44,7 +48,8 @@ print Net::SSLeay::dump_peer_certificate($ssl);
 
 Net::SSLeay::ssl_write_all($ssl,"\tcallback ok\n");
 shutdown S, 1;
-print Net::SSLeay::ssl_read_all($ssl);
+my $ra;
+print defined($ra = Net::SSLeay::ssl_read_all($ssl)) ? $ra : '';
 
 Net::SSLeay::free ($ssl);
 Net::SSLeay::CTX_free ($ctx);
