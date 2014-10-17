@@ -1,7 +1,7 @@
 # Net::SSLeay.pm - Perl module for using Eric Young's implementation of SSL
 #
 # Copyright (c) 1996,1998 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
-# Version 1.00, 19.6.1998
+# Version 1.01, 19.6.1998
 #
 # The distribution and use of this module are subject to the conditions
 # listed in COPYRIGHT file at the root of Eric Young's SSLeay-0.9.0
@@ -10,6 +10,20 @@
 package Net::SSLeay;
 
 $trace = 0;  # 0=only errors, 1=ciphers, 2=progress, 3=dump data
+
+# RANDOM NUMBER INITIALIZATION
+#
+# Edit to your taste. Using /dev/random would be more secure, but may
+# block if randomness is not available, thus the default is
+# /dev/urandom. $how_random determines many bits of randomness to take
+# from the device. You should take enough (read SSLeay/doc/rand), but
+# beware that randomness is limited resource so you should not waste
+# it either or you may end up with randomness depletion (situation where
+# /dev/random would block and /dev/urandom starts to return predictable
+# numbers).
+
+$random_device = '/dev/urandom';
+$how_random = 512;
 
 use strict;
 use Carp;
@@ -20,7 +34,7 @@ require Exporter;
 require DynaLoader;
 require AutoLoader;
 
-$VERSION = '1.00';
+$VERSION = '1.01';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -436,6 +450,38 @@ sslcat is just a transport.
 The trace global variable can be used to control the verbosity of high
 level functions. Level 0 only emits error messages.
 
+=head2 Convenience routines
+
+To be used with Low level API
+
+    Net::SSLeay::randomize($rn_seed_file,$additional_seed);
+    Net::SSLeay::set_server_cert_and_key($ctx, $cert_path, $key_path);
+    $cert = Net::SSLeay::dump_peer_certificate($ssl);
+    Net::SSLeay::ssl_write_all($ssl, $message) or die "ssl write failure";
+    $got = Net::SSLeay::ssl_read_all($ssl) or die "ssl read failure";
+
+randomize() seeds the eay PRNG with /dev/urandom (see top of SSLeay.pm
+for how to change or configure this) and optionally with user provided
+data. It is very important to properly seed your random numbers, so
+don't forget to call this.
+
+set_server_cert_and_key() takes two file names as arguments and sets
+the server certificate and private key to those.
+
+dump_peer_certificate() allows you to get plaintext description of the
+certificate the peer (usually server) presented to us.
+
+ssl_read_all() and ssl_write_all() provide true blocking semantics for
+these operations (see limitation, below, for explanation). These are
+much preferred to the low level API equivalents (which implement BSD
+blocking semantics). The message argument to ssl_write_all() can be
+reference. This is helpful to avoid unnecessary copy when writing
+something big, e.g:
+
+    $data = 'A' x 1000000000;
+    Net::SSLeay::ssl_write_all($ssl, \$data) or die "ssl write failed";
+
+
 =head2 Low level API
 
 In addition to the high level functions outlined above, this module
@@ -444,8 +490,10 @@ subpart of SSLeay is implemented (if anyone wants to implement other
 parts, feel free to submit patches).
 
 See ssl.h header from SSLeay C distribution for list of low lever
-SSLeay functions to call. The module strips SSLeay names of the initial
-`SSL_', generally you should use Net::SSLeay:: in place. For example:
+SSLeay functions to call (to check if some function has been
+implemented see directly in SSLeay.xs). The module strips SSLeay names
+of the initial `SSL_', generally you should use Net::SSLeay:: in
+place. For example:
 
 In C:
 
@@ -560,18 +608,23 @@ verify mechanism satisfies your needs.
 If you want to use callback stuff, see examples/callback.pl! Its the
 only one I'm able to make work reliably.
 
-=head2 X509 stuff
+=head2 X509 and RAND stuff
 
-This module largely lacks interface to the X509 routines, but as I was
-lazy and needed them, the following kludges are implemented:
+This module largely lacks interface to the X509 and RAND routines, but
+as I was lazy and needed them, the following kludges are implemented:
 
     $x509_name = Net::SSLeay::X509_get_subject_name($x509_cert);
     $x509_name = Net::SSLeay::X509_get_issuer_name($x509_cert);
     print Net::SSLeay::X509_NAME_oneline($x509_name);
+    Net::SSLeay::RAND_seed($buf);   # Perlishly figures out buf size
+    Net::SSLeay::RAND_cleanup();
+    Net::SSLeay::RAND_load_file($file_name, $how_many_bytes);
+    Net::SSLeay::RAND_write_file($file_name);
 
-Actually you should consider using the following helper function:
+Actually you should consider using the following helper functions:
 
     print Net::SSLeay::dump_peer_certificate($ssl);
+    Net::SSLeay::randomize();
 
 =head1 EXAMPLES
 
@@ -581,18 +634,17 @@ SSLeay.pm file.
 Following is a simple SSLeay client (with too little error checking :-(
 
     #!/usr/local/bin/perl
-    #';
+    #`;
     use Socket;
     use Net::SSLeay qw(die_now die_if_ssl_error) ;
     Net::SSLeay::load_error_strings();
     Net::SSLeay::SSLeay_add_ssl_algorithms();
-    
+    Net::SSLeay::randomize();
+
     ($dest_serv, $port, $msg) = @ARGV;      # Read command line
     $port = getservbyname ($port, 'tcp') unless $port =~ /^\d+$/;
     $dest_ip = gethostbyname ($dest_serv);
-    
-    $sockaddr_template = 'S n a4 x8';
-    $dest_serv_params  = pack ($sockaddr_template, &AF_INET, $port, $dest_ip);
+    $dest_serv_params  = sockaddr_in($port, $dest_ip);
     
     socket  (S, &AF_INET, &SOCK_STREAM, 0)  or die "socket: $!";
     connect (S, $dest_serv_params)          or die "connect: $!";
@@ -768,9 +820,11 @@ Or alternatively you can just use the following convinence functions:
     Net::SSLeay::ssl_write_all($ssl, $message) or die "ssl write failure";
     $got = Net::SSLeay::ssl_read_all($ssl) or die "ssl read failure";
 
-=head2 KNOWN BUGS
+=head1 KNOWN BUGS
 
-Autoloader emits `Argument "xxx" isn't numeric in entersub at blib/lib/Net/SSLeay.pm' warning if die_if_ssl_error is made autoloadable.
+Autoloader emits `Argument "xxx" isn't numeric in entersub at
+blib/lib/Net/SSLeay.pm' warning if die_if_ssl_error is made
+autoloadable.
 
 Callback set using SSL_set_verify() does not appear to work. This may
 well be eay problem (e.g. see ssl/ssl_lib.c line 1029). Try using
@@ -779,11 +833,11 @@ working in future versions.
 
 Callback and certificate verification stuff is generally too little tested.
 
-Random numbers are not initialized randomly (e.g. /dev/random) by default.
+Random numbers are not initialized randomly enough.
 
 =head1 VERSION
 
-This man page documents version 1.00, released on 19.6.1998. This version
+This man page documents version 1.01, released on 24.6.1998. This version
 had some API changes over 0.04 so I incremented the major version. Old
 scripts should work still with following minor modifications:
 	
@@ -834,8 +888,8 @@ backdoors, and general suitability for your application.
 
 =head1 SEE ALSO
 
-  your-perl-source/ext/Net/SSLeay/examples - Example servers and a clients
-  <http://www.neuronio.pt/SSLeay.pm.html/> - Net::SSLeay.pm home
+  Net_SSLeay/examples                      - Example servers and a clients
+  <http://www.neuronio.pt/SSLeay.pm.html>  - Net::SSLeay.pm home
   <ftp://ftp.psy.uq.oz.au/pub/Crypto/SSL>  - current SSLeay C source
   SSLeay-0.9.0/perl                        - Eric's SSLeay.pm
   <http://www.psy.uq.oz.au/~ftp/Crypto/>   - SSLeay online documentation 
@@ -861,14 +915,15 @@ sub open_tcp_connection {
             . " `$dest_serv' (port $port) ($!)\n";
         return 0;
     }
-    my $dest_serv_params = pack ('S n a4 x8', &AF_INET, $port, $dest_serv_ip);
-
+    my $sin = sockaddr_in($port, $dest_serv_ip);
+    
     printf STDERR "Opening connection to $dest_serv:$port (%x)\n",
     $dest_serv_ip if $trace>1;
     
-    if (socket (SSLCAT_S, &PF_INET, &SOCK_STREAM, 0)) {
+    my $proto = getprotobyname('tcp');
+    if (socket (SSLCAT_S, &PF_INET, &SOCK_STREAM, $proto)) {
         warn "next connect\n" if $trace > 2;
-        if (connect (SSLCAT_S, $dest_serv_params)) {
+        if (connect (SSLCAT_S, $sin)) {
             my $old_out = select (SSLCAT_S); $| = 1; select ($old_out);
             warn "connected to $dest_serv, $port\n" if $trace > 2;
             return 1; # Success
@@ -887,30 +942,46 @@ sub ssl_read_all {
     my ($ssl,$how_much) = @_;
     $how_much = 2000000000 unless $how_much;
     my ($reply, $got);
-    do {	
+    do {
 	$got = Net::SSLeay::read($ssl,$how_much);
 	last if print_errs('SSL_read');
 	$how_much -= length($got);
+	$vm = (split ' ', `cat /proc/$$/stat`)[22] if $trace>1;  # Linux Only?
 	warn "  got " . length($got) . ':'
-	    . length($reply) . " bytes.\n" if $trace == 2;
+	    . length($reply) . " bytes (VM=$vm).\n" if $trace == 2;
 	warn "  got `$got' (" . length($got) . ':'
-	    . length($reply) . " bytes)\n" if $trace>2;
+	    . length($reply) . " bytes, VM=$vm)\n" if $trace>2;
 	$reply .= $got;
+	#$reply = $got;  # *** DEBUG
     } while ($got && $how_much > 0);
     return $reply;
 }
 
 sub ssl_write_all {
-    my ($ssl, $message) = @_;
-    my ($wrote, $written) = (0,0);
+    my $ssl = $_[0];    
+    my $data_ref;
+    if (ref $_[1]) {
+	$data_ref = $_[1];
+    } else {
+	$data_ref = \$_[1];
+    }
+    my ($wrote, $written, $to_write) = (0,0, length($$data_ref));
+    $vm = (split ' ', `cat /proc/$$/stat`)[22] if $trace>1;  # Linux Only?
+    warn "  write_all VM at entry=$vm\n" if $trace>1;
     do {
-	$wrote .= Net::SSLeay::write($ssl, substr($message, $written));
+	#sleep 1; # *** DEBUG
+	warn "partial `$$data_ref'\n" if $trace>2;
+	$wrote = write_partial($ssl, $written, $to_write, $$data_ref);
 	$written += $wrote;
-	warn "  written so far $wrote:$written bytes\n" if $trace>1;
+	$to_write -= $wrote;
+	$vm = (split ' ', `cat /proc/$$/stat`)[22] if $trace>1;  # Linux Only?
+	warn "  written so far $wrote:$written bytes (VM=$vm)\n" if $trace>1;
 	return undef if print_errs('SSL_write');
-    } while ($written < length($message));
+    } while ($to_write);
     return $written;
 }
+
+### Quickly print out with whom we're talking
 
 sub dump_peer_certificate {
     my ($ssl) = @_;
@@ -920,6 +991,21 @@ sub dump_peer_certificate {
 	. X509_NAME_oneline(X509_get_subject_name($cert)) . "\n"
         . "Issuer  Name: "
 	. X509_NAME_oneline(X509_get_issuer_name($cert))  . "\n";
+}
+
+### Arrange some randomness for eay PRNG
+
+sub randomize {
+    my ($rn_seed_file, $seed) = @_;
+
+    RAND_seed(rand() + $$);  # Stir it with time and pid
+    
+    warn "Random number generator not seeded!!!\n" unless
+	-r $rn_seed_file || -r $random_device || $seed;
+    
+    RAND_load_file($rn_seed_file, -s _) if -r $rn_seed_file;
+    RAND_seed($seed) if $seed;
+    RAND_load_file($random_device, $how_random/8) if -r $random_device;
 }
 
 ###
@@ -937,6 +1023,7 @@ sub sslcat { # address, port, message --> returns reply
     warn "Creating SSL context...\n" if $trace>1;
     load_error_strings();         # Some bloat, but I'm after ease of use
     SSLeay_add_ssl_algorithms();  # and debuggability.
+    randomize('/etc/passwd');
     $ctx = CTX_new();
     goto cleanup2 if print_errs('CTX_new') or !$ctx;
     

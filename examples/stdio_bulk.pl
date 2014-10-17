@@ -36,7 +36,7 @@ if ($child_pid = fork) {
     $got = Net::SSLeay::ssl_read_all($ssl,$how_much)
 	or die "$$: ssl read failed";
     print "$$: got " . length($got) . " bytes\n";
-    Net::SSLeay::ssl_write_all($ssl, $got) or die "$$: ssl write failed";
+    Net::SSLeay::ssl_write_all($ssl, \$got) or die "$$: ssl write failed";
     $got = '';
     
     Net::SSLeay::free ($ssl);               # Tear down connection
@@ -66,7 +66,7 @@ print "$$: " . Net::SSLeay::dump_peer_certificate($ssl);
 # Exchange data
 
 $data = 'B' x $how_much;
-Net::SSLeay::ssl_write_all($ssl, $data) or die "$$: ssl write failed";
+Net::SSLeay::ssl_write_all($ssl, \$data) or die "$$: ssl write failed";
 $got = Net::SSLeay::ssl_read_all($ssl, $how_much)
     or die "$$: ssl read failed";
 

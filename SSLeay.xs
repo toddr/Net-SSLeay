@@ -4,6 +4,8 @@
  * All Rights Reserved.
  *
  * 19.6.1998, Maintenance release to sync with SSLeay-0.9.0, --Sampo
+ * 24.6.1998, added write_partial to support ssl_write_all in more
+ *            memory efficient way. --Sampo
  * 
  * The distribution and use of this module are subject to the conditions
  * listed in COPYRIGHT file at the root of Eric Young's SSLeay-0.9.0
@@ -1514,49 +1516,49 @@ SSL_free(s)
 #if 0 /* this seems to be gone in 0.9.0 */
 void
 SSL_debug(file)
-       char *             file
+       char *  file
 
 #endif
 
 int
 SSL_accept(s)
-     SSL *              s
+     SSL *   s
 
 void
 SSL_clear(s)
-     SSL *              s
+     SSL *   s
 
 int
 SSL_connect(s)
-     SSL *              s
+     SSL *   s
 
 
 int
 SSL_set_fd(s,fd)
-     SSL *              s
-     int                fd
+     SSL *   s
+     int     fd
 
 int
 SSL_set_rfd(s,fd)
-     SSL *              s
-     int                fd
+     SSL *   s
+     int     fd
 
 int
 SSL_set_wfd(s,fd)
-     SSL *              s
-     int                fd
+     SSL *   s
+     int     fd
 
 int
 SSL_get_fd(s)
-     SSL *              s
+     SSL *   s
 
 void
 SSL_read(s,max=sizeof(buf))
-     SSL *              s
+     SSL *   s
      PREINIT:
      char buf[32768];
      INPUT:
-     int                max
+     int     max
      PREINIT:
      int got;
      CODE:
@@ -1566,13 +1568,42 @@ SSL_read(s,max=sizeof(buf))
 
 int
 SSL_write(s,buf)
-     SSL *              s
+     SSL *   s
      PREINIT:
      STRLEN len;
      INPUT:
-     char *             buf = SvPV( ST(1), len);
+     char *  buf = SvPV( ST(1), len);
      CODE:
      RETVAL = SSL_write (s, buf, (int)len);
+     OUTPUT:
+     RETVAL
+
+int
+SSL_write_partial(s,from,count,buf)
+     SSL *   s
+     int     from
+     int     count
+     PREINIT:
+     STRLEN len;
+     INPUT:
+     char *  buf = SvPV( ST(3), len);
+     CODE:
+      /*
+     if (SvROK( ST(3) )) {
+       SV* t = SvRV( ST(3) );
+       buf = SvPV( t, len);
+     } else
+       buf = SvPV( ST(3), len);
+       */
+     PRN("write_partial from",from);
+     PRN(&buf[from],len);
+     PRN("write_partial count",count);
+     len -= from;
+     if (len < 0) {
+       croak("from beyound end of buffer");
+       RETVAL = -1;
+     } else
+       RETVAL = SSL_write (s, &(buf[from]), (count<=len)?count:len);
      OUTPUT:
      RETVAL
 
@@ -2011,6 +2042,27 @@ SSLeay_add_ssl_algorithms()
 
 void
 ERR_load_SSL_strings()
+
+void
+RAND_seed(buf)
+     PREINIT:
+     STRLEN len;
+     INPUT:
+     char *  buf = SvPV( ST(1), len);
+     CODE:
+     RAND_seed (buf, (int)len);
+
+void
+RAND_cleanup()
+
+int
+RAND_load_file(file_name, how_much)
+     char *  file_name
+     int     how_much
+
+int
+RAND_write_file(file_name)
+     char *  file_name
 
 #if 0 /* Minimal X509 stuff..., this is a bit ugly and should be put in its own modules Net::SSLeay::X509.pm */
 #endif

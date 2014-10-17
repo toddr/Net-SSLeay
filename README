@@ -1,6 +1,7 @@
 README - Net::SSLeay Perl module for using Eric Young's implementation of SSL
 
-19.6.1998, Sampo Kellomaki <sampo@iki.fi>
+24.6.1998, Sampo Kellomaki <sampo@iki.fi>
+Version 1.01
 
 Note: This module is _the_ `Net::SSLeay' namespace. Eric Young is
 working on another module, which comes in the perl sub directory of
@@ -18,48 +19,28 @@ By popular demand...
 Prerequisites
 -------------
 
-perl5.004     - though anything starting from perl5.002 probably works. You
-                need your perl in source code form.
+perl5.004     - though anything starting from perl5.002 probably works.
 SSLeay-0.9.0  - nothing earlier works and I do not guarantee that anything
                 later works either (but chances are good, if SSLeay API
                 stabilizes at this version). If the newest version does
                 not work, downgrade to 0.9.0 before asking questions.
-                I have assumed that SSLeay is installed in /usr/local/ssl,
-                if this is not the case, you have to edit Makefile.PL
 
 Installing
 ----------
 
-1. Extract the archive in correct place in Perl tree (you probably
-   already extracted the archieve since you are reading this file,
-   sorry, you have to do it again)
-	
-	cd perl5.004/ext
-	mkdir Net    # Unless you already have this directory
-        cd Net
-	gunzip <Net_SSLeay.pm-1.00.tar.gz | tar xvf -
+	gunzip <Net_SSLeay.pm-1.01.tar.gz | tar xvf -
+	cd Net_SSLeay.pm-1.01
+	./Makefile.PL -t     # builds and tests it
+	make install         # You probably have to be root to do this
+	perldoc Net::SSLeay  # optional
 
-2. Make the make file, make the module, test it, install it
-
-	cd SSLeay
-	perl Makefile.PL
-	make
-	make test
-
-	# You can play with your new toy already here, but see perlxtut(1)
-        # if your perl does not find the new module.
-
-	make install    # This usually needs to be done as root
-
-	# Now the module is visible to normal perl scripts
-
-3. You're done, but if you like, you can build a HTML page:
-
-	perl-source-root/pod/pod2html SSLeay.pm
-
+You should also be able to use CPAN.pm to install this module if you like.
 
 Problems
 --------
+
+Did you read the POD documentation (if you don't know what that
+is, just say `perldoc Net::SSLeay' or `more SSLeay.pm')?
 
 Are you sure you didn't confuse `Net::SSLeay' with `SSLeay'?
 
@@ -71,6 +52,10 @@ My development environments are
 Unfortunately I do not have access to other systems so you are
 somewhat on your own. Everything compiles without a warning on my
 systems.
+
+Check if there are any post release building hints in
+
+	http://www.neuronio.pt/SSLeay.pm.html
 
 Check that perl is finding your SSLeay.
 
@@ -86,6 +71,9 @@ then sslecho.pl test server has died. It is supposed to be launched in
 the beginning of test.pl, but can fail if, e.g. port 1212 is taken or
 in TIMEWAIT state. Look also in ssleacho.log file for diagnostics.
 
+If you are really low on memory and the 5 MB tests fail, edit value of
+$mb variable in test.pl.
+
 If you get core dump, build your perl for debugging (add -g to
 ccflags, see INSTALL in perl distribution), build your SSLeay for
 debugging as well, uncomment the "OPTIMIZE => '-g'" line in
@@ -96,6 +84,21 @@ Makefile.PL and then say
 	make static
 	make test_static
 	gdb perl core
+	gdb perl core       # post mortem
+	gdb perl
+	  # set break point in SSLeay.xs or in suspect function
+	  # in Eric's SSLeay
+	  > run yourscript.pl arg arg
+
+For gdb'ing make sure gdb finds all the relevant source code. This
+may mean that you must run perl and SSLeay from the directories where
+the respective makefiles build them.
+
+You can also enable PR and PRN macros in SSLeay.xs and sprinkle
+even some more around the code to figure out what's happening.
+
+If you need to tweak build for some platform, please let me know
+so I can fix it. Patches and gdb session dumps are also welcome.
 
 Recommended reading
 -------------------
@@ -104,9 +107,14 @@ If you run into build problems, especially regarding shared libraries,
 check your perl documentation, especially the perlxtut(1) man page,
 which gives excellent tutorial of the build process of XSUBs.
 
-perlxtut(1)
-perlxs(1)
-perlguts(1)
-perlcall(1)
+  perlxtut(1)
+  perlxs(1)
+  perlguts(1)
+  perlcall(1)
+
+If you are newbie interested in grabbing web pages from https servers,
+please read HTTP documentation from <a
+href="http://www.w3c.org">http://www.w3c.org</a> before asking trivial
+questions.
 
 --Sampo

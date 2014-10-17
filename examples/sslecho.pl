@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl -w
+#!/usr/bin/perl -w
 # sslecho.pl - Echo server using SSL
 #
 # Copyright (c) 1996,1998 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
@@ -34,6 +34,7 @@ listen (S, 5)                          or die "listen: $!";
 Net::SSLeay::load_error_strings();
 Net::SSLeay::ERR_load_crypto_strings();
 Net::SSLeay::SSLeay_add_ssl_algorithms();
+Net::SSLeay::randomize();
 
 print "sslecho: Creating SSL context...\n" if $trace>1;
 $ctx = Net::SSLeay::CTX_new () or die_now("CTX_new ($ctx): $!\n");

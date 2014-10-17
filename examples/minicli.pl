@@ -3,15 +3,14 @@
 
 use Socket;
 use Net::SSLeay;
-&Net::SSLeay::load_error_strings();
-&Net::SSLeay::SSLeay_add_ssl_algorithms();
+Net::SSLeay::load_error_strings();
+Net::SSLeay::SSLeay_add_ssl_algorithms();
+Net::SSLeay::randomize();
 
 ($dest_serv, $port, $msg) = @ARGV;      # Read command line
 $port = getservbyname  ($port, 'tcp')   unless $port =~ /^\d+$/;
 $dest_ip = gethostbyname ($dest_serv);
-
-$sockaddr_template = 'S n a4 x8';
-$dest_serv_params  = pack ($sockaddr_template, &AF_INET, $port, $dest_ip);
+$dest_serv_params = sockaddr_in($port, $dest_ip);
 
 socket  (S, &AF_INET, &SOCK_STREAM, 0)  or die "socket: $!";
 connect (S, $dest_serv_params)          or die "connect: $!";

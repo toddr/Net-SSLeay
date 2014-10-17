@@ -13,7 +13,7 @@ Net::SSLeay::SSLeay_add_ssl_algorithms();
 $port = getservbyname  ($port, 'tcp')   unless $port =~ /^\d+$/;
 $dest_ip = gethostbyname ($dest_serv);
 
-$dest_serv_params  = pack ('S n a4 x8', &AF_INET, $port, $dest_ip);
+$dest_serv_params  = sockaddr_in($port, $dest_ip);
 socket  (S, &AF_INET, &SOCK_STREAM, 0)  or die "socket: $!";
 connect (S, $dest_serv_params)          or die "connect: $!";
 select  (S); $| = 1; select (STDOUT);
@@ -39,7 +39,7 @@ print "Issuer Name:  "
 # Exchange data
 
 $data = 'A' x $how_much;
-Net::SSLeay::ssl_write_all($ssl, $data) or die "ssl write failed";
+Net::SSLeay::ssl_write_all($ssl, \$data) or die "ssl write failed";
 shutdown S, 1;  # Half close --> No more output, sends EOF to server
 $got = Net::SSLeay::ssl_read_all($ssl) or die "ssl read failed";
 

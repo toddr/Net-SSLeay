@@ -2,8 +2,9 @@
 # 19.6.1998, Sampo Kellomaki <sampo@iki.fi>
 # Make a self signed cert
 
-$ssleay_path = "/usr/local/ssl/bin";
 $dir = shift;
+$ssleay_path = shift || '/usr/local/ssl';
+$ssleay_path .= '/bin';
 
 open (REQ, "|$ssleay_path/req -config $dir/req.conf "
       . "-x509 -days 36500 -new -keyout $dir/key.pem >$dir/cert.pem")
@@ -26,6 +27,7 @@ system "$ssleay_path/verify $dir/cert.pem";  # Just to check
 $hash = `$ssleay_path/x509 -inform pem -hash -noout <$dir/cert.pem`;
 chomp $hash;
 unlink "$dir/$hash.0";
-symlink $cert_pem, "$dir/$hash.0" or die "Can't symlink $dir/$hash.0 ($!)";
+symlink "$dir/cert.pem", "$dir/$hash.0"
+    or die "Can't symlink $dir/$hash.0 ($!)";
 
 __END__

@@ -14,3 +14,8 @@ Revision history for Perl extension Net::SSLeay.
 	- added couple of X509 routeines
 	- improved tests and documentation
 	- fixed callbacks (but found that old callbacks dont work)
+1.01  23.6.1998, Sampo Kellomaki <sampo@iki.fi>
+	- made Makefile.PL check SSLeay version and to be more CPAN kosher
+	- changed build instructions to build outside perl source tree
+	- added random number initialization using /dev/urandom (if available)
+	- made ssl_write_all accept references, this is more memory efficient
