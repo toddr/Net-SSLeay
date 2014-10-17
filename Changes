@@ -137,6 +137,10 @@ Revision history for Perl extension Net::SSLeay.
 1.16  17.4.2002-22.5.2002
         - applied patch to fix CTX_set_default_passwd_cb() contributed
           by Timo Kujala <timo.kujala@@intellitel_.com>, --Sampo
+	- similar patch by Chris Ridd <chris.ridd@messagingdirect.com>
 	- applied patch to add various API functions by mikem@open.com_.au
 	- 5.005_03 compat fix for Handle.pm from Jim Mintha <jim@@ic._uva.nl>
-
+1.17  8.6.2002
+	- further fixes for Net::SSLeay::Handle from jbowlin@@_linklint.org
+	- improved README.Win32 and added RECIPE.Win32 from
+	  Hermann Kelley <hkelley@@secmon._com>

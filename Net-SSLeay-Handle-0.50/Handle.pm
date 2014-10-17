@@ -1,4 +1,4 @@
-# $Id: Handle.pm,v 1.7 2002/06/05 18:25:46 sampo Exp $
+# $Id: Handle.pm,v 1.8 2002/06/07 12:32:26 sampo Exp $
 
 package Net::SSLeay::Handle;
 
@@ -13,7 +13,7 @@ require Exporter;
 use vars qw(@ISA @EXPORT_OK $VERSION);
 @ISA = qw(Exporter);
 @EXPORT_OK = qw(shutdown);
-$VERSION = '0.52';
+$VERSION = '0.61';
 
 #=== Class Variables ==========================================================
 #
@@ -24,8 +24,9 @@ $VERSION = '0.52';
 #==============================================================================
 
 my $Initialized;       #-- only _initialize() once
-my %Filenum_Object;    #-- hash of hashes, keyed by fileno()                       
+my %Filenum_Object;    #-- hash of hashes, keyed by fileno()
 my $Debug = 0;         #-- pretty hokey
+my %Glob_Ref;          #-- used to make unique \*S names for versions < 5.6
 
 #== Tie Handle Methods ========================================================
 #
@@ -37,9 +38,7 @@ sub TIEHANDLE {
     my ($class, $socket, $port) = @_;
     $Debug > 10 and print "TIEHANDLE(@{[join ', ', @_]})\n";
 
-  UNIVERSAL::isa($socket, 'GLOB')
-      or $socket = $class->make_socket($socket, $port);
-    #ref $socket eq "GLOB" or $socket = $class->make_socket($socket, $port);
+    ref $socket eq "GLOB" or $socket = $class->make_socket($socket, $port);
 
     $class->_initialize();
 
@@ -83,6 +82,32 @@ sub READLINE {
     return $line ? $line : undef;
 }
 
+sub READ {
+    my ($socket, $buf, $len, $offset) = \ (@_);
+    my $ssl = _get_ssl($$socket);
+    defined($$offset) or 
+      return length($$buf = Net::SSLeay::ssl_read_all($ssl, $$len));
+
+    defined(my $read = Net::SSLeay::ssl_read_all($ssl, $$len))
+      or return undef;
+
+    my $buf_len = length($$buf);
+    $$offset > $buf_len and $$buf .= chr(0) x ($$offset - $buf_len);
+    substr($$buf, $$offset) = $read;
+    return length($read);
+}
+
+sub WRITE {
+    my $socket = shift;
+    my ($buf, $len, $offset) = @_;
+    $offset = 0 unless defined $offset;
+
+    # Return number of characters written.
+    my $ssl  = $socket->_get_ssl();
+    return $len if Net::SSLeay::write($ssl, substr($buf, $offset, $len));
+    return undef;
+}
+
 sub CLOSE {
     my $socket = shift;
     my $fileno = fileno($socket);
@@ -97,7 +122,9 @@ sub CLOSE {
 sub FILENO  { fileno($_[0]) }
 
 
-#== Exportable Functions  ======================================================
+#== Exportable Functions  =====================================================
+
+# TIEHANDLE, PRINT, READLINE, CLOSE FILENO, READ, WRITE
 
 #--- shutdown(\*SOCKET, $mode) ------------------------------------------------
 # Calls to the main shutdown() don't work with tied sockets created with this
@@ -127,34 +154,53 @@ sub debug {
 sub make_socket {
     my ($class, $host, $port) = @_;
     $Debug > 10 and print "_make_socket(@{[join ', ', @_]})\n";
-    $host ||= "localhost";
+    $host ||= 'localhost';
     $port ||= 443;
 
-    if ($Net::SSLeay::proxyhost) {
+    my $phost = $Net::SSLeay::proxyhost;
+    my $pport = $Net::SSLeay::proxyhost ? $Net::SSLeay::proxyport : $port;
 
-#    $port = getservbyname($port, 'tcp') unless $port =~ /^\d+$/;
-	my $dest_ip = gethostbyname($Net::SSLeay::proxyhost);
-	my $host_params = sockaddr_in($Net::SSLeay::proxyport, $dest_ip);
-	my $socket = \*S;
-	socket($socket, &PF_INET(), &SOCK_STREAM(), 0)    or die "socket: $!";
-	connect($socket, $host_params)              or die "connect: $!";
-	my $old_select = select($socket); $| = 1; select($old_select);
-	
-	print $socket "CONNECT $host:$port HTTP/1.0$Net::SSLeay::proxyauth$Net::SSLeay::CRLF$Net::SSLeay::CRLF";
-	my $line = <$socket>;
-	return $socket;
+    my $dest_ip     = gethostbyname( $phost || $host);
+    my $host_params = sockaddr_in($pport, $dest_ip);
+    my $socket = $^V lt 'v5.6.0' ? $class->_glob_ref("$host:$port") : undef;
+    
+    socket($socket, &PF_INET(), &SOCK_STREAM(), 0) or die "socket: $!";
+    connect($socket, $host_params)                 or die "connect: $!";
 
-    } else {
+    my $old_select = select($socket); $| = 1; select($old_select);
+    $phost and do {
+        my $auth = $Net::SSLeay::proxyauth;
+        my $CRLF = $Net::SSLeay::CRLF;
+        print $socket "CONNECT $host:$port HTTP/1.0$auth$CRLF$CRLF";
+        my $line = <$socket>;
+    };
+    return $socket;
+}
 
-#    $port = getservbyname($port, 'tcp') unless $port =~ /^\d+$/;
-	my $dest_ip = gethostbyname($host);
-	my $host_params = sockaddr_in($port, $dest_ip);
-	my $socket = \*S;
-	socket($socket, &PF_INET(), &SOCK_STREAM(), 0)    or die "socket: $!";
-	connect($socket, $host_params)              or die "connect: $!";
-	my $old_select = select($socket); $| = 1; select($old_select);
-	return $socket;
-    }
+#--- _glob_ref($strings) ------------------------------------------------------
+#
+# Create a unique namespace name and return a glob ref to it.  Would be great
+# to use the fileno but need this before we get back the fileno.
+# NEED TO LOCK THIS ROUTINE IF USING THREADS. (but it is only used for
+# versions < 5.6 :)
+#------------------------------------------------------------------------------
+
+sub _glob_ref {
+    my $class = shift;
+    my $preamb = join("", @_) || "_glob_ref";
+    my $num = ++$Glob_Ref{$preamb};
+    my $name = "$preamb:$num";
+    no strict 'refs';
+    my $glob_ref = \*$name;
+    use strict 'refs';
+
+    $Debug and do {
+        print "GLOB_REF $preamb\n";
+        while (my ($k, $v) = each %Glob_Ref) {print "$k = $v\n"} 
+        print "\n";
+    };
+
+    return $glob_ref;
 }
 
 sub _initialize {
@@ -162,6 +208,12 @@ sub _initialize {
   Net::SSLeay::load_error_strings();
   Net::SSLeay::SSLeay_add_ssl_algorithms();
   Net::SSLeay::randomize();
+}
+
+sub __dummy {
+    my $host = $Net::SSLeay::proxyhost;
+    my $port = $Net::SSLeay::proxyport;
+    my $auth = $Net::SSLeay::proxyauth;
 }
 
 #--- _get_self($socket) -------------------------------------------------------
@@ -210,7 +262,7 @@ handled as standard file handles.
 Net::SSLeay::Handle allows you to request and receive HTTPS web pages
 using "old-fashion" file handles as in:
 
-    print <SSL> "GET / HTTP/1.0\r\n";
+    print SSL "GET / HTTP/1.0\r\n";
 
 and
 
@@ -299,13 +351,24 @@ I was able to associate attributes to globs created by this module
 Support for old perls may not be 100%. If in trouble try 5.6.0 or
 newer.
 
+=head1 CHANGES
+
+Please see Net-SSLeay-Handle-0.50/Changes file.
+
+=head1 KNOWN BUGS
+
+If you let this module construct sockets for you with Perl versions
+below v.5.6 then there is a slight memory leak.  Other upgrade your
+Perl, or create the sockets yourself.  The leak was created to let
+these older versions of Perl access more than one Handle at a time.
+
 =head1 AUTHOR
 
 Jim Bowlin jbowlin@linklint.org
 
 =head1 SEE ALSO
 
-Net::SSLeay
+Net::SSLeay, perl(1), http://openssl.org/
 
 =cut
 

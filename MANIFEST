@@ -12,6 +12,7 @@ test.pl
 ptrcasttst.c
 ptrtstrun.pl
 .rnd
+RECIPE.Win32
 examples/minicli.pl
 examples/sslecho.pl
 examples/sslcat.pl

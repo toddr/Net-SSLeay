@@ -5,8 +5,9 @@
 # 15.4.2001, fixed little bug in ssl directory detection --Sampo
 # 18.7.2001, fixed numerous issues reported by Eric A Selber
 #	     <eselber@briefcase.com> that made Windows builds painful --Sampo
-# 20.8.2001, tweaked path editing, thanks Gordon Lack <gml4410@ggr.co.uk> --Sampo
-# $Id: Makefile.PL,v 1.7 2002/06/05 18:25:45 sampo Exp $
+# 20.8.2001, tweaked path editing, thanks to Gordon Lack
+#            <gml4410@@ggr.co.uk> --Sampo
+# $Id: Makefile.PL,v 1.8 2002/06/09 18:42:41 sampo Exp $
 #
 # Configuration script for Net::SSLeay.pm
 
@@ -99,7 +100,7 @@ print F $openssl_bin_path;  # used by test.pl and examples/makecert.pl
 close F;
 
 ### The windows option tweaking details supplied by
-### Eric A Selber <eselber@briefcase.com>. This is
+### Eric A Selber <eselber@@briefcase_.com>. This is
 ### still experimental until I get success reports.
 
 if ($windows) {
