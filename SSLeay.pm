@@ -1,6 +1,6 @@
 # Net::SSLeay.pm - Perl module for using Eric Young's implementation of SSL
 #
-# Copyright (c) 1996-1999 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
+# Copyright (c) 1996-2002 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
 # Version 1.04, 31.3.1999
 # 30.7.1999, Tracking OpenSSL-0.9.3a changes, --Sampo
 # 31.7.1999, version 1.05 --Sampo
@@ -13,7 +13,8 @@
 # 6.11.2001, got rid of $p_errs madness --Sampo
 # 9.11.2001, added EGD (entropy gathering daemon) reference info --Sampo
 # 7.12.2001, Added proxy support by Bruno De Wolf <bruno.dewolf@@pandora._be>
-# $Id: SSLeay.pm,v 1.8 2001/12/17 21:13:42 sampo Exp $
+# 6.1.2002,  cosmetic fix to socket options from Kwindla Hultman Kramer <kwindla@@allafrica_.com>
+# $Id: SSLeay.pm,v 1.9 2002/01/06 17:02:57 sampo Exp $
 #
 # The distribution and use of this module are subject to the conditions
 # listed in LICENSE file at the root of OpenSSL-0.9.6a
@@ -69,7 +70,7 @@ $Net::SSLeay::slowly = 0;  # don't change here, use
 $Net::SSLeay::random_device = '/dev/urandom';
 $Net::SSLeay::how_random = 512;
 
-$VERSION = '1.12';
+$VERSION = '1.13';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -1148,7 +1149,7 @@ believe it would build with any perl5.002 or newer.
 
 =head1 AUTHOR
 
-Sampo Kellomaki <sampo@iki.fi>
+Sampo Kellomäki <sampo@symlabs.com>
 
 Please send bug reports to the above address. General questions should be
 sent either to me or to the mailing list (subscribe by sending mail
@@ -1157,7 +1158,8 @@ http://www.openssl.org/support/).
 
 =head1 COPYRIGHT
 
-Copyright (c) 1996-2001 Sampo Kellomaki <sampo@iki.fi>, All Rights Reserved.
+Copyright (c) 1996-2002 Sampo Kellomäki <sampo@symlabs.com>
+All Rights Reserved.
 
 Distribution and use of this module is under the same terms as the
 OpenSSL package itself (i.e. free, but mandatory attribution; NO
@@ -1177,8 +1179,8 @@ backdoors, and general suitability for your application.
 
   Net::SSLeay::Handle                      - File handle interface
   ./Net_SSLeay/examples                    - Example servers and a clients
-  <http://www.bacus.pt/Net_SSLeay/index.html>  - Net::SSLeay.pm home
-  <http://www.bacus.pt/Net_SSLeay/smime.html>  - Another module using OpenSSL
+  <http://symlabs.com/Net_SSLeay/index.html>  - Net::SSLeay.pm home
+  <http://symlabs.com/Net_SSLeay/smime.html>  - Another module using OpenSSL
   <http://www.openssl.org/>                - OpenSSL source, documentation, etc
   openssl-users-request@openssl.org        - General OpenSSL mailing list
   <http://home.netscape.com/newsref/std/SSL.html>  - SSL Draft specification
@@ -1225,7 +1227,7 @@ sub open_tcp_connection {
 	inet_ntoa($dest_serv_ip) . ")" if $trace>2;
     
     my $proto = getprotobyname('tcp');
-    if (socket (SSLCAT_S, &PF_INET, &SOCK_STREAM, $proto)) {
+    if (socket (SSLCAT_S, &PF_INET(), &SOCK_STREAM(), $proto)) {
         warn "next connect" if $trace>3;
         if (CORE::connect (SSLCAT_S, $sin)) {
             my $old_out = select (SSLCAT_S); $| = 1; select ($old_out);
@@ -1432,7 +1434,7 @@ sub sslcat { # address, port, message, $crt, $key --> returns reply
     warn "Creating SSL $ssl_version context...\n" if $trace>2;
     load_error_strings();         # Some bloat, but I'm after ease of use
     SSLeay_add_ssl_algorithms();  # and debuggability.
-    randomize('/etc/passwd');
+    randomize();
     
     $ctx = new_x_ctx();
     goto cleanup2 if $errs = print_errs('CTX_new') or !$ctx;
@@ -1522,7 +1524,7 @@ sub https_cat { # address, port, message --> returns reply
     warn "Creating SSL $ssl_version context...\n" if $trace>2;
     load_error_strings();         # Some bloat, but I'm after ease of use
     SSLeay_add_ssl_algorithms();  # and debuggability.
-    randomize('/etc/passwd');
+    randomize();
 
     $ctx = new_x_ctx();
     goto cleanup2 if $errs = print_errs('CTX_new') or !$ctx;

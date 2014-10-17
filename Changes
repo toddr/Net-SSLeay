@@ -114,3 +114,10 @@ Revision history for Perl extension Net::SSLeay.
 	- Added proxy support by Bruno De Wolf <bruno.dewolf@@pandora._be>
 1.11  14.12.2001,
 	- Added proxy support to Net::SSLeay::Handle, too
+1.12  6.1.2002
+	- cosmetic fix to socket options from
+          Kwindla Hultman Kramer <kwindla@@allafrica_.com>
+1.13  13.2.2002
+	- eliminated initializing random numbers using /etc/passwd per
+	  comments by Matt Messier <matt@@securesw_.com>
+	- tested against openssl-0.9.6c

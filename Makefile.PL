@@ -6,7 +6,7 @@
 # 18.7.2001, fixed numerous issues reported by Eric A Selber
 #	     <eselber@briefcase.com> that made Windows builds painful --Sampo
 # 20.8.2001, tweaked path editing, thanks Gordon Lack <gml4410@ggr.co.uk> --Sampo
-# $Id: Makefile.PL,v 1.4 2001/10/02 14:01:36 sampo Exp $
+# $Id: Makefile.PL,v 1.5 2002/02/13 23:32:22 sampo Exp $
 #
 # Configuration script for Net::SSLeay.pm
 
@@ -42,7 +42,7 @@ $openssl_path = shift if @ARGV && $ARGV[0] ne '--';
 
 shift if $ARGV[0] eq '--';   # Rest of args are for MakeMaker
 
-$openssl_vers = '0.9.6b';
+$openssl_vers = '0.9.6c';
 
 print "Checking for OpenSSL-$openssl_vers or newer...\n";
 
@@ -86,8 +86,8 @@ warn "That's is newer than what this module was tested with ($openssl_vers). You
     . "available. Everything will probably work OK, though.\n"
     if $maj > 0.9 || $min > 6;
 
-warn "openssl-0.9.6a and some earlier versions have weaknesses (read CHANGES file in the openssl-0.9.6b distribution, www.openssl.org), upgrading to openssl-0.9.6b is recommended.\n"
-    if $maj eq '0.9' && $min == 6 && $letter lt 'b';
+warn "openssl-0.9.6a and some earlier versions have weaknesses and also 0.9.6b has some (nonfatal) bugs (read CHANGES file in the openssl-0.9.6c distribution, www.openssl.org), upgrading to openssl-0.9.6c is recommended.\n"
+    if $maj eq '0.9' && $min == 6 && $letter lt 'c';
 
 open F, ">openssl_path" or die "Can't write ./openssl_path: $!";
 print F $openssl_bin_path;  # used by test.pl and examples/makecert.pl
