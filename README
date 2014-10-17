@@ -1,8 +1,8 @@
 README - Net::SSLeay Perl module for using Eric Young's implementation of SSL
 
-8.7.1998, Sampo Kellomaki <sampo@iki.fi>
-Version: 1.02 
-New: added CTX_set_options($ctx, &OP_ALL) to deal with broken servers
+4.1.1999, Sampo Kellomaki <sampo@iki.fi>
+Version: 1.03
+New: version upgrade for OpenSSL-0.9.1c (try http://www.openssl.org/)
 
 Note: This module is _the_ `Net::SSLeay' namespace. Eric Young is
 working on another module, which comes in the perl sub directory of
@@ -21,16 +21,17 @@ Prerequisites
 -------------
 
 perl5.004     - though anything starting from perl5.002 probably works.
-SSLeay-0.9.0  - nothing earlier works and I do not guarantee that anything
+SSLeay-0.9.0 or OpenSSL-0.9.1c (try http://www.openssl.org/) - nothing
+                earlier works and I do not guarantee that anything
                 later works either (but chances are good, if SSLeay API
                 stabilizes at this version). If the newest version does
-                not work, downgrade to 0.9.0 before asking questions.
+                not work, downgrade to OpenSSL-0.9.1c before asking questions.
 
 Installing
 ----------
 
-	gunzip <Net_SSLeay.pm-1.02.tar.gz | tar xvf -
-	cd Net_SSLeay.pm-1.01
+	gunzip <Net_SSLeay.pm-1.03.tar.gz | tar xvf -
+	cd Net_SSLeay.pm-1.03
 	./Makefile.PL -t     # builds and tests it
 	make install         # You probably have to be root to do this
 	perldoc Net::SSLeay  # optional, but highly recommended
@@ -39,6 +40,9 @@ You should also be able to use CPAN.pm to install this module if you like.
 
 Problems
 --------
+
+It seems perl5.004 (at least some versions) has bad xsub compiler which
+can make builds sometimes fail. Try upgrading to perl5.005 first.
 
 "Random number generator not seeded!!!" This warning indicates that
   randomize() was not able to read /dev/random or /dev/urandom, possibly
@@ -51,10 +55,9 @@ is, just say `perldoc Net::SSLeay' or `more SSLeay.pm')?
 
 Are you sure you didn't confuse `Net::SSLeay' with `SSLeay'?
 
-My development environments are
+My development environment is
   
-  i586, Linux-2.0.33, gcc-2.7.2.2, perl5.004_01
-  Sparc Station 10, SunOS 4.1.3, gcc 2.7.2, perl5.003
+  i586, Linux-2.0.36, gcc-2.7.2.2, perl5.005_02
 
 Unfortunately I do not have access to other systems so you are
 somewhat on your own. Everything compiles without a warning on my
@@ -123,5 +126,7 @@ If you are newbie interested in grabbing web pages from https servers,
 please read HTTP documentation from <a
 href="http://www.w3c.org">http://www.w3c.org</a> before asking trivial
 questions.
+
+To download OpenSSL, try URL http://www.openssl.org
 
 --Sampo

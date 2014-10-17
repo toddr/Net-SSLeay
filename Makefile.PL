@@ -10,11 +10,13 @@ $make_it = shift if $ARGV[0] eq '-m';
 $test_it = shift if $ARGV[0] eq '-t';
 $ssleay_path = shift || '/usr/local/ssl';
 
-print "Checking for SSLeay-0.9.0...\n";
+print "Checking for SSLeay-0.9.0 or OpenSSL-0.9.1c...\n";
 
 until (-x "$ssleay_path/bin/ssleay") {
     print "I could not find your SSLeay in `$ssleay_path'\n";
-    print "Please provide SSLeay-0.9.0 installation directory (C-c to abort):\n";
+    print "Please provide SSLeay-0.9.0 or OpenSSL-0.9.1c (get from\n"
+	. " http://www.openssl.org/ if you dont have it) installation \n"
+	    . "directory (C-c to abort):\n";
     $ssleay_path = <STDIN>;
     chomp $ssleay_path;
 }
@@ -22,26 +24,28 @@ until (-x "$ssleay_path/bin/ssleay") {
 $vers = `$ssleay_path/bin/ssleay version`
     or die "Couldn't run `$ssleay_path/bin/ssleay' ($?)($!)\n";
 
-($maj, $min) = $vers =~ /^SSLeay\s+(\d+\.\d+)\.(\d+)/ or
+unless (($lib_name, $maj, $min, $letter) = $vers =~
+	/^((?:SSLeay)|(?:OpenSSL))\s+(\d+\.\d+)\.(\d+)([a-z]*)/) {
     die "SSLeay version test failed (`$vers' was returned, but\n"
     . "couldn't be parsed). Either you have bogus SSLeay or Eric\n"
     . "has changed version number format.\n";
+}
 
-print "You have SSLeay-$maj.$min installed in $ssleay_path\n";
+print "You have $lib_name-$maj.$min$letter installed in $ssleay_path\n";
 
-die "That's too old. Please upgrade to SSLeay-0.9.0\n"
+die "That's too old. Please upgrade to SSLeay-0.9.0 or OpenSSL-0.9.1c\n"
     . "before trying to install this module. If you can't upgrade,\n"
     . "Net_SSLeay.pm-0.04 still works for you.\n"
     if $maj eq '0.6' && $min >=1;
 
-die "That's too old. Please upgrade to SSLeay-0.9.0\n"
+die "That's too old. Please upgrade to SSLeay-0.9.0 or OpenSSL-0.9.1c\n"
     . "before trying to install this module.\n"
     if $maj < 0.9;
 
 warn "That's is newer than what this module was tested with. You should\n"
     . "consider checking if there is a newer release of this module\n"
     . "available. Everything will probably work OK, though.\n"
-    if $maj > 0.9 || $min > 0;
+    if $maj > 0.9 || $min > 1;
 
 open F, ">ssleay_path" or die "Can't write ssleay_path: $!\n";
 print F $ssleay_path;

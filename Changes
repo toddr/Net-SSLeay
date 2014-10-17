@@ -22,3 +22,19 @@ Revision history for Perl extension Net::SSLeay.
 1.02  8.7.1998, Sampo Kellomaki <sampo@iki.fi>
 	- Added SSL_(CTX)?_set_options and associated constants
 	- Slight clean-ups
+1.03  4.1.1999, Sampo Kellomaki <sampo@iki.fi>
+	- Merged URI encoding patch to make_form
+	  from Joe Rhett <jrhett@navigist.com>
+	- changed sslcat, ssl_read_all, ssl_write_all to return error messages
+	  as second member of list. Functions continue to behave the old way
+	  if scalar return value is used (they check this with wantarray).
+	  Change was suggested by Joe Rhett.
+	- changed $trace levels so that 0 does not produce any output
+	- changed get_https and put_https to fake error 900 in $response
+	  return field
+	- changed print_errs and some other internals to return textual
+	  errors instead of error count
+	- changed SSLeay.xs comments from #if 0 to #define REM. This will
+	  hopefully make it easier to compile with some vendor compilers
+	- Added version detection code for OpenSSL-0.9.1c and checked
+	  build

@@ -1521,8 +1521,7 @@ hello()
         OUTPUT:
         RETVAL
 
-#if 0 /* ============= SSL CONTEXT functions ============== */
-#endif
+#define REM1 "============= SSL CONTEXT functions =============="
 
 SSL_CTX *
 SSL_CTX_new()
@@ -1605,8 +1604,7 @@ SSL_CTX_set_verify(ctx,mode,callback)
          SSL_CTX_set_verify(ctx,mode,NULL);
      }
 
-#if 0 /* ============= SSL functions ============== */
-#endif
+#define REM10 "============= SSL functions =============="
 
 SSL *
 SSL_new(ctx)
@@ -1917,8 +1915,7 @@ d2i_SSL_SESSION(a,pp,length)
      unsigned char *    &pp
      long               length
 
-#if 0 /* SSLeay-0.9.0 defines these as macros. I expand them here for safety's sake */
-#endif
+#define REM30 "SSLeay-0.9.0 defines these as macros. I expand them here for safety's sake"
 
 int
 SSL_add_session(ctx,ses)
@@ -2181,8 +2178,7 @@ int
 RAND_write_file(file_name)
      char *  file_name
 
-#if 0 /* Minimal X509 stuff..., this is a bit ugly and should be put in its own modules Net::SSLeay::X509.pm */
-#endif
+#define REM40 "Minimal X509 stuff..., this is a bit ugly and should be put in its own modules Net::SSLeay::X509.pm"
 
 X509_NAME*
 X509_get_issuer_name(cert)
@@ -2202,5 +2198,4 @@ X509_NAME_oneline(name)
      if (X509_NAME_oneline(name, buf, sizeof(buf)))
          sv_setpvn( ST(0), buf, strlen(buf));
 
-#if 0 /* EOF - SSLeay.xs */
-#endif
+#define REM_EOF "/* EOF - SSLeay.xs */"

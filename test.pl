@@ -102,16 +102,17 @@ print "    Following tests _will_ fail if you do not have network\n"
 sleep 5;
 }
 
-print &test('8 neuronio', &Net::SSLeay::sslcat("brutus.neuronio.pt", 443,
+print &test('8 www.bacus.pt', &Net::SSLeay::sslcat("www.bacus.pt", 443,
 				 "get\n\r\n\r") =~ /<TITLE>/);
 
 sub test_site {
     my ($test_nro, $site) = @_;
-    my ($p, $r) = Net::SSLeay::get_https($site, 443, '/');
+    my ($p, $r) = ('','');
+    ($p, $r) = Net::SSLeay::get_https($site, 443, '/');
     print &test("$test_nro $site", scalar($r =~ /^HTTP\/1/s));
 }
 
-&test_site(9,  "www.cryptsoft.com");       # Apache + SSLeay
+&test_site(9,  "www.openssl.org");         # Apache + SSLeay
 &test_site(10, "www.cdw.com");             # Some IIS
 &test_site(11, "transact.netscape.com");   # Modern NS server
 

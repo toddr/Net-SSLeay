@@ -3,7 +3,7 @@
 
 $usage = <<USAGE
 Usage: ./https-proxy-snif.pl *listen_port* *dest_machine* *dest_port*
-E.g:   ./https-proxy-snif.pl 4443 www.cryptsoft.com 443
+E.g:   ./https-proxy-snif.pl 4443 www.bacus.pt 443
 
 This proxy allows you to observe the protocol talked by your browser
 to remote https server. Useful for debugging http headers etc sent
@@ -15,6 +15,12 @@ certificate than actually sent by server. You will be able to launch
 only one simultaneous connection (set you browser to attempt only
 one at a time) because it is iterative server, keep-alives are not
 handled at all, etc.
+
+Remeber: you must have cert.pem and key.pem in the current working directory.
+
+Example:
+    ./https-proxy-snif.pl 4443 www.bacus.pt 443
+Then enter https://localhost:4443/ in Netscape Location prompt.
 USAGE
     ;
 
