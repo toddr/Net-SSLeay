@@ -82,3 +82,22 @@ Revision history for Perl extension Net::SSLeay.
 	  of your names so I do not name the contributors here)
 1.07  18.4.2001,
 	- TLSv1 support by Stephen C. Koehler <koehler@securecomputing.com>
+1.08  25.4.2001,
+	- applied 64 bit fixes by Marko Asplund <aspa@kronodoc.fi>
+      17.7.2001,
+	- applied error codes and SSL_*_method patch by Noel Burton-Krahn
+          <noel@burton-krahn.com> via aspa
+	- warning cleanups by Jared Allison <jallison@UU.NET>
+	- do last loop fixes from Jim Bowlin <bowlin@mindspring.com>
+	- Fixed extra-newline-if-header-already-contained-newline problem
+	  reported by Sean McMurray <smcmurray@verio.net> (first reported by
+	  Yuao TANIGAWA <yuao@www.infosite.ne.jp> but not fixed by me back
+	  then for some reason, my bad)
+	- Added ability to set client certificate for https_cat and sslcat
+	  as suggested by Avi Ben-Harush <avib@atomica.com>
+	- created do_https2 with more rational calling sequence
+      18.7.2001,
+	- numerous windows oriented fixes from Eric A Selber
+	  <eselber@briefcase.com>
+	- bumped OpenSSL version requirement to 0.9.6b and tested
+	- merged in Net::SSLeay::Handle by Jim Bowlin <jbowlin@linklint.org>

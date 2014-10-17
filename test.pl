@@ -2,6 +2,7 @@
 # 24.6.1998, 8.7.1998, Sampo Kellomaki <sampo@iki.fi>
 # 31.7.1999, added more tests --Sampo
 # 7.4.2001,  upgraded to OpenSSL-0.9.6a --Sampo
+# 25.4.2001, added test for 64 bit pointer cast by aspa --Sampo
 #
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl test.pl'
@@ -23,6 +24,7 @@ print "ok 1\n";
 ######################### End of black magic.
 
 my $trace = $ENV{TEST_TRACE} || 1;  # 0=silent, 1=verbose, 2=debugging
+#$Net::SSLeay::trace = 3;
 
 my $mb = 1;     # size of the bulk tests
 my $errors = 0;
@@ -34,6 +36,11 @@ sub test {
     $errors++ unless $test;
     return $test ? "ok $num\n" : "*** not ok $num\n\n"
 }
+
+### Pointer casting test for 64 bit architectures
+
+print "Testing pointer to int casting...\n";
+system "$perl ptrtstrun.pl";
 
 &Net::SSLeay::load_error_strings();
 &Net::SSLeay::SSLeay_add_ssl_algorithms();

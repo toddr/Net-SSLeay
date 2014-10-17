@@ -7,6 +7,8 @@
 # 7.4.2001,  fixed input error upon 0, OpenSSL-0.9.6a, version 1.06 --Sampo
 # 18.4.2001, added TLSv1 support by Stephen C. Koehler
 #            <koehler@securecomputing.com>, version 1.07, --Sampo
+# 25.4.2001, 64 bit fixes by Marko Asplund <aspa@kronodoc.fi> --Sampo
+# 17.4.2001, more error codes from aspa --Sampo
 #
 # The distribution and use of this module are subject to the conditions
 # listed in LICENSE file at the root of OpenSSL-0.9.6a
@@ -16,7 +18,7 @@ package Net::SSLeay;
 
 use strict;
 use Carp;
-use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD);
+use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD $CRLF);
 use Socket;
 use Errno;
 
@@ -33,7 +35,7 @@ $Net::SSLeay::trace = 0;  # Do not change here, use
 # 10 = insist on TLSv1
 # 0 or undef = guess (v23)
 #
-#$Net::SSLeay::ssl_version = 3;
+$Net::SSLeay::ssl_version = 0;
 
 #define to enable the "cat /proc/$$/stat" stuff
 $Net::SSLeay::linux_debug = 0;
@@ -53,11 +55,15 @@ $Net::SSLeay::slowly = 0;  # don't change here, use
 # it either or you may end up with randomness depletion (situation where
 # /dev/random would block and /dev/urandom starts to return predictable
 # numbers).
+#
+# N.B. /dev/urandom does not exit on all systems, such as Solaris. In that
+#      case you should get a third party package that emulates /dev/urandom
+#      (e.g. via named pipe) or supply a random number file.
 
 $Net::SSLeay::random_device = '/dev/urandom';
 $Net::SSLeay::how_random = 512;
 
-$VERSION = '1.07';
+$VERSION = '1.08';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -78,6 +84,14 @@ $VERSION = '1.07';
 	CK_RC4_128_EXPORT40_WITH_MD5
 	CK_RC4_128_WITH_MD5
 	CLIENT_VERSION
+	ERROR_NONE
+	ERROR_SSL
+	ERROR_SYSCALL
+	ERROR_WANT_CONNECT
+	ERROR_WANT_READ
+	ERROR_WANT_WRITE
+	ERROR_WANT_X509_LOOKUP
+	ERROR_ZERO_RETURN
 	CT_X509_CERTIFICATE
 	FILETYPE_ASN1
 	FILETYPE_PEM
@@ -330,6 +344,7 @@ $VERSION = '1.07';
 	die_if_ssl_error
 	die_now
 	print_errs
+	set_cert_and_key
 	set_server_cert_and_key
         make_form
         make_headers
@@ -352,7 +367,7 @@ sub AUTOLOAD {
 
     my $constname;
     ($constname = $AUTOLOAD) =~ s/.*:://;
-    my $val = constant($constname, @_ ? $_[0] : 0);
+    my $val = constant($constname);
     if ($! != 0) {
 	if ($! =~ /((Invalid)|(not valid))/i || $!{EINVAL}) {
 	    $AutoLoader::AUTOLOAD = $AUTOLOAD;
@@ -369,6 +384,8 @@ sub AUTOLOAD {
 bootstrap Net::SSLeay $VERSION;
 
 # Preloaded methods go here.
+
+$CRLF = "\x0d\x0a";  # because \r\n is not fully portable
 
 ### Print SSLeay error stack
 
@@ -421,23 +438,34 @@ Net::SSLeay - Perl extension for using OpenSSL or SSLeay
 
   ($page, $response, %reply_headers)
 	 = get_https('www.bacus.pt', 443, '/',                   # 2
-	 	make_headers(
-			'User-Agent' => 'Cryptozilla/5.0b1',
-			'Referer'    => 'https://www.bacus.pt'
+	 	make_headers(User-Agent => 'Cryptozilla/5.0b1',
+			     Referer    => 'https://www.bacus.pt'
 		));
 
   ($page, $result, %headers) =                                   # 2b
          = get_https('www.bacus.pt', 443, '/protected.html',
-	      make_headers('Authorization' =>
+	      make_headers(Authorization =>
 			   'Basic ' . MIME::Base64::encode("$user:$pass"))
 	      );
 
+  ($page, $result, %headers) =                                   # 2c
+         = get_https('www.bacus.pt', 443, '/protected.html',
+	      make_headers(Authorization =>
+			   'Basic ' . MIME::Base64::encode("$user:$pass")),
+	      '', $mime_type6, $path_to_crt7, $path_to_key8);
+
   ($page, $response, %reply_headers)
 	 = post_https('www.bacus.pt', 443, '/foo.cgi', '',       # 3
-		make_form(
-			'OK'   => '1',
-			'name' => 'Sampo'
+		make_form(OK   => '1',
+			  name => 'Sampo'
 		));
+
+  ($page, $response, %reply_headers)
+	 = post_https('www.bacus.pt', 443, '/foo.cgi',           # 3b
+	      make_headers('Authorization' =>
+			   'Basic ' . MIME::Base64::encode("$user:$pass")),
+	      make_form(OK   => '1', name => 'Sampo'),
+	      $mime_type6, $path_to_crt7, $path_to_key8);
 
   $reply = sslcat($host, $port, $request);                       # 4
 
@@ -445,39 +473,50 @@ Net::SSLeay - Perl extension for using OpenSSL or SSLeay
 
 =head1 DESCRIPTION
 
+There is a related module called Net::SSLeay::Handle included in this
+distribution that you might want to use instead. It has its own pod
+documentation.
+
 This module offers some high level convinience functions for accessing
 web pages on SSL servers, a sslcat() function for writing your own
 clients, and finally access to the SSL api of SSLeay package so you
 can write servers or clients for more complicated applications.
 
 For high level functions it is most convinient to import them to your
-main namespace as indicated in the synopsis. Case 1 demonstrates
-typical invocation of get_https() to fetch an HTML page from secure
-server. The first argument provides host name or ip in dotted decimal
-notation of the remote server to contact. Second argument is the TCP
-port at the remote end (your own port is picked arbitrarily from high
-numbered ports as usual for TCP). The third argument is the URL of the
-page without the host name part. If in doubt consult HTTP
-specifications at <http://www.w3c.org>
+main namespace as indicated in the synopsis.
 
-Case 2 demonstrates full fledged use of get_https. As can be seen,
-get_https parses the response and response headers and returns them as
+Case 1 demonstrates typical invocation of get_https() to fetch an HTML
+page from secure server. The first argument provides host name or ip
+in dotted decimal notation of the remote server to contact. Second
+argument is the TCP port at the remote end (your own port is picked
+arbitrarily from high numbered ports as usual for TCP). The third
+argument is the URL of the page without the host name part. If in
+doubt consult HTTP specifications at <http://www.w3c.org>
+
+Case 2 demonstrates full fledged use of get_https(). As can be seen,
+get_https() parses the response and response headers and returns them as
 a list, which can be captured in a hash for later reference. Also a
-fourth argument to get_https is used to insert some additional headers
-in the request. make_headers is a function that will convert a list or
-hash to such headers. By default get_https supplies Host (make virtual
+fourth argument to get_https() is used to insert some additional headers
+in the request. make_headers() is a function that will convert a list or
+hash to such headers. By default get_https() supplies Host (make virtual
 hosting easy) and Accept (reportedly needed by IIS) headers.
 
 Case 2b demonstrates how to get password protected page. Refer to
 HTTP protocol specifications for further details (e.g. RFC2617).
 
-Case 3 invokes post_https to submit a HTML/CGI form to secure
-server. First four arguments are equal to get_https (note that empty
+Case 2c demonstrates getting password protected page that also requires
+client certificate.
+
+Case 3 invokes post_https() to submit a HTML/CGI form to secure
+server. First four arguments are equal to get_https() (note that empty
 string ('') is passed as header argument). The fifth argument is the
 contents of the form formatted according to CGI specification. In this
 case the helper function make_https() is used to do the formatting,
 but you could pass any string. The post_https() automatically adds
 Content-Type and Content-Length headers to the request.
+
+Case 3b is full blown post to secure server that requires both password
+authentication and client certificate, just like in case 2c.
 
 Case 4 shows the fundamental sslcat() function (inspired in spirit by
 netcat utility :-). Its your swiss army knife that allows you to
@@ -494,7 +533,7 @@ only emits error messages.
 To be used with Low level API
 
     Net::SSLeay::randomize($rn_seed_file,$additional_seed);
-    Net::SSLeay::set_server_cert_and_key($ctx, $cert_path, $key_path);
+    Net::SSLeay::set_cert_and_key($ctx, $cert_path, $key_path);
     $cert = Net::SSLeay::dump_peer_certificate($ssl);
     Net::SSLeay::ssl_write_all($ssl, $message) or die "ssl write failure";
     $got = Net::SSLeay::ssl_read_all($ssl) or die "ssl read failure";
@@ -507,10 +546,11 @@ randomize() seeds the eay PRNG with /dev/urandom (see top of SSLeay.pm
 for how to change or configure this) and optionally with user provided
 data. It is very important to properly seed your random numbers, so
 do not forget to call this. The high level API functions automatically
-call randomize() so it is not needed with them.
+call randomize() so it is not needed with them. See also caveats.
 
-set_server_cert_and_key() takes two file names as arguments and sets
-the server certificate and private key to those.
+set_cert_and_key() takes two file names as arguments and sets
+the certificate and private key to those. This can be used to
+set either cerver certificates or client certificates.
 
 dump_peer_certificate() allows you to get plaintext description of the
 certificate the peer (usually server) presented to us.
@@ -865,20 +905,20 @@ as much as fits in one network packet. To work around this,
 you should use a loop like this:
 
     $reply = '';
-    do {
-	$got = Net::SSLeay::read($ssl);
+    while ($got = Net::SSLeay::read($ssl)) {
 	last if print_errs('SSL_read');
 	$reply .= $got;
-    } while ($got);
+    }
 
-Although there is no built in limit in Net::SSLeay::write, the network
+Although there is no built-in limit in Net::SSLeay::write, the network
 packet size limitation applies here as well, thus use:
 
     $written = 0;
-    do {
-	$written .= Net::SSLeay::write($ssl, substr($message, $written));
+
+    while ($written < length($message)) {
+	$written += Net::SSLeay::write($ssl, substr($message, $written));
 	last if print_errs('SSL_write');
-    } while ($written < length($message));
+    }
 
 Or alternatively you can just use the following convinence functions:
 
@@ -902,7 +942,25 @@ working in future versions.
 Callback and certificate verification stuff is generally too little tested.
 
 Random numbers are not initialized randomly enough, especially if you
-do not have /dev/random and/or /dev/urandom.
+do not have /dev/random and/or /dev/urandom (such as in Solaris
+platforms - but I've been suggested that cryptorand daemon from SUNski
+package solves this). In this case you should investigate third party
+software that can emulate these devices, e.g. by way of a named pipe
+to some program.
+
+Another gotcha with random number initialization is randomness
+depletion. This phenomenon, which has been extensively discussed in
+OpenSSL, Apache-SSL, and Apache-mod_ssl forums, can cause your
+script to block if you use /dev/random or to operate insecurely
+if you use /dev/urandom. What happens is that when too much
+randomness is drawn from the operating system's randomness pool
+then randomness can temporarily be unavailable. /dev/random solves
+this problem by waiting until enough randomness can be gathered - and
+this can take a long time since blocking reduces activity in the
+machine and less activity provides less random events: a vicious circle.
+/dev/urandom solves this dilemma more pragmatically by simply returning
+predictable "random" numbers. Some /dev/urandom emulation software
+however actually seems to implement /dev/random semantics. Caveat emptor.
 
 If you are using the low level API functions to communicate with other
 SSL implementations, you would do well to call
@@ -954,9 +1012,7 @@ alleviate the CPU load somewhat.
 
 =head1 VERSION
 
-This man page documents version 1.04, released on 31.7.1999. This version
-had some API changes over 1.03 but is still provisory. Expect to see
-version 1.05 to get up to full speed of OpenSSL-0.9.3a and beyound.
+This man page documents version 1.08, released on 17.7.2001.
 
 There are currently two perl modules for using OpenSSL C
 library: Net::SSLeay (maintaned by me) and SSLeay (maintained by OpenSSL
@@ -969,7 +1025,7 @@ contain any further functionality, i.e. I will concentrate on just
 making a simple SSL connection over TCP socket. Presumably Eric's own
 module will offer full SSLeay API one day.
 
-This module uses OpenSSL-0.9.3a. It does not work with any earlier version
+This module uses OpenSSL-0.9.6a. It does not work with any earlier version
 and there is no guarantee that it will work with later versions either,
 though as long as C API does not change, it should. This module
 requires perl5.005 (or better?) though I believe it would build with
@@ -1004,6 +1060,7 @@ backdoors, and general suitability for your application.
 
 =head1 SEE ALSO
 
+  Net::SSLeay::Handle                      - File handle interface
   ./Net_SSLeay/examples                    - Example servers and a clients
   <http://www.bacus.pt/Net_SSLeay/index.html>  - Net::SSLeay.pm home
   <http://www.bacus.pt/Net_SSLeay/smime.html>  - Another module using OpenSSL
@@ -1057,23 +1114,30 @@ sub open_tcp_connection {
 ### read and write helpers that block
 ###
 
+sub debug_read {
+    my ($replyr, $gotr) = @_;
+    my $vm = $trace>2 && $linux_debug ?
+	(split ' ', `cat /proc/$$/stat`)[22] : 'vm_unknown';
+    warn "  got " . length($$gotr) . ':'
+	. length($$replyr) . " bytes (VM=$vm).\n" if $trace == 3;
+    warn "  got `$$gotr' (" . length($$gotr) . ':'
+	. length($$replyr) . " bytes, VM=$vm)\n" if $trace>3;
+}
+
 sub ssl_read_all {
     my ($ssl,$how_much) = @_;
     $how_much = 2000000000 unless $how_much;
     my ($got, $errs);
     my $reply = '';
-    do {
+
+    while ($how_much > 0) {
 	$got = Net::SSLeay::read($ssl,$how_much);
 	last if $errs = print_errs('SSL_read');
 	$how_much -= length($got);
-	my $vm = $trace>2 && $linux_debug ?
-	    (split ' ', `cat /proc/$$/stat`)[22] : 'vm_unknown';
-	warn "  got " . length($got) . ':'
-	    . length($reply) . " bytes (VM=$vm).\n" if $trace == 3;
-	warn "  got `$got' (" . length($got) . ':'
-	    . length($reply) . " bytes, VM=$vm)\n" if $trace>3;
-	$reply .= $got if defined($got);
-    } while ($got ne '' && $how_much > 0);
+	debug_read(\$reply, \$got) if $trace>1;
+	last if $got eq '';  # EOF
+	$reply .= $got;
+    }
     return wantarray ? ($reply, $errs) : $reply;
 }
 
@@ -1089,7 +1153,7 @@ sub ssl_write_all {
     my $vm = $trace>2 && $linux_debug ?
 	(split ' ', `cat /proc/$$/stat`)[22] : 'vm_unknown';
     warn "  write_all VM at entry=$vm\n" if $trace>2;
-    do {
+    while ($to_write) {
 	#sleep 1; # *** DEBUG
 	warn "partial `$$data_ref'\n" if $trace>3;
 	$wrote = write_partial($ssl, $written, $to_write, $$data_ref);
@@ -1101,8 +1165,8 @@ sub ssl_write_all {
 	
 	my $p_errs = print_errs('SSL_write');
 	$errs .= $p_errs if defined $p_errs;
-       return (wantarray ? (undef, $errs) : undef) if $errs;
-    } while ($to_write);
+	return (wantarray ? (undef, $errs) : undef) if $errs;
+    }
     return wantarray ? ($written, $errs) : $written;
 }
 
@@ -1113,33 +1177,26 @@ sub ssl_write_all {
 #  read until delimiter reached, up to $max_length chars if defined
 
 sub ssl_read_until ($;$$) {
-    my ($ssl,$delimit, $max_length) = @_;
+    my ($ssl,$delim, $max_length) = @_;
 
-    # guess the delimit string if missing
-    if ( ! defined $delimit ) {           
-      if ( defined $/ && length $/  ) { $delimit = $/ }
-      else { $delimit = "\n" }      # Note: \n,$/ value depends on the platform
+    # guess the delim string if missing
+    if ( ! defined $delim ) {           
+      if ( defined $/ && length $/  ) { $delim = $/ }
+      else { $delim = "\n" }      # Note: \n,$/ value depends on the platform
     }
-    my $length_delimit = length $delimit;
+    my $len_delim = length $delim;
 
     my ($got);
     my $reply = '';
-    do {
-        $got = Net::SSLeay::read($ssl,1);
+    while (!defined $max_length || length $reply < $max_length) {
+        $got = Net::SSLeay::read($ssl,1);  # one by one
         last if print_errs('SSL_read');
-	my $vm = $trace>2 && $linux_debug ?
-	    (split ' ', `cat /proc/$$/stat`)[22] : 'vm_unknown';
-        warn "  got " . length($got) . ':'
-            . length($reply) . " bytes (VM=$vm).\n" if $trace == 2;
-        warn "  got `$got' (" . length($got) . ':'
-            . length($reply) . " bytes, VM=$vm)\n" if $trace>2;
+	debug_read(\$reply, \$got) if $trace>1;
+	last if $got eq '';
         $reply .= $got;
-    } while ($got ne '' &&
-              ( $length_delimit==0 || substr($reply, length($reply)-
-                $length_delimit) ne $delimit
-              ) &&
-              (!defined $max_length || length $reply < $max_length)
-            );
+	last if $len_delim
+	    && substr($reply, length($reply)-$len_delim) eq $delim;
+    }
     return $reply;
 }
 
@@ -1204,17 +1261,25 @@ sub randomize (;$$) {
 	if -r $Net::SSLeay::random_device;
 }
 
+sub new_x_ctx {
+    if    ($ssl_version == 2)  { $ctx = CTX_v2_new(); }
+    elsif ($ssl_version == 3)  { $ctx = CTX_v3_new(); }
+    elsif ($ssl_version == 10) { $ctx = CTX_tlsv1_new(); }
+    else                       { $ctx = CTX_new(); }
+    return $ctx;
+}
+
 ###
 ### Basic request - response primitive (don't use for https)
 ###
 
-sub sslcat { # address, port, message --> returns reply
-    my ($dest_serv, $port, $out_message) = @_;
+sub sslcat { # address, port, message, $crt, $key --> returns reply
+    my ($dest_serv, $port, $out_message, $crt_path, $key_path) = @_;
     my ($ctx, $ssl, $got, $errs, $written);
-
+    
     ($got, $errs) = open_tcp_connection($dest_serv, $port, \$errs);
     return (wantarray ? (undef, $errs) : undef) unless $got;
-	    
+    
     ### Do SSL negotiation stuff
 	    
     warn "Creating SSL $ssl_version context...\n" if $trace>2;
@@ -1222,15 +1287,14 @@ sub sslcat { # address, port, message --> returns reply
     SSLeay_add_ssl_algorithms();  # and debuggability.
     randomize('/etc/passwd');
     
-    if    ($ssl_version == 2)  { $ctx = CTX_v2_new(); }
-    elsif ($ssl_version == 3)  { $ctx = CTX_v3_new(); }
-    elsif ($ssl_version == 10) { $ctx = CTX_tlsv1_new(); }
-    else                       { $ctx = CTX_new(); }
-
+    $ctx = new_x_ctx();
     goto cleanup2 if $errs = print_errs('CTX_new') or !$ctx;
 
     CTX_set_options($ctx, &OP_ALL);
     goto cleanup2 if $errs = print_errs('CTX_set_options');
+
+    warn "Cert `$crt_path' given without key" if $crt_path && !$key_path;
+    set_cert_and_key($ctx, $crt_path, $key_path) if $crt_path;
     
     warn "Creating SSL connection (context was '$ctx')...\n" if $trace>2;
     $ssl = new($ctx);
@@ -1300,9 +1364,9 @@ cleanup2:
 ###
 
 sub https_cat { # address, port, message --> returns reply
-    my ($dest_serv, $port, $out_message) = @_;
+    my ($dest_serv, $port, $out_message, $crt_path, $key_path) = @_;
     my ($ctx, $ssl, $got, $errs, $written, $p_errs);
-
+    
     ($got, $errs) = open_tcp_connection($dest_serv, $port, \$errs);
     return (wantarray ? (undef, $errs) : undef) unless $got;
 	    
@@ -1312,15 +1376,15 @@ sub https_cat { # address, port, message --> returns reply
     load_error_strings();         # Some bloat, but I'm after ease of use
     SSLeay_add_ssl_algorithms();  # and debuggability.
     randomize('/etc/passwd');
-    
-    if    ($ssl_version == 2) { $ctx = CTX_v2_new(); }
-    elsif ($ssl_version == 3) { $ctx = CTX_v3_new(); }
-    else                      { $ctx = CTX_new(); }
 
+    $ctx = new_x_ctx();
     goto cleanup2 if $errs = print_errs('CTX_new') or !$ctx;
 
     CTX_set_options($ctx, &OP_ALL);
     goto cleanup2 if $errs = print_errs('CTX_set_options');
+    
+    warn "Cert `$crt_path' given without key" if $crt_path && !$key_path;
+    set_cert_and_key($ctx, $crt_path, $key_path) if $crt_path;
     
     warn "Creating SSL connection (context was '$ctx')...\n" if $trace>2;
     $ssl = new($ctx);
@@ -1387,7 +1451,7 @@ cleanup2:
 ### Easy set up of private key and certificate
 ###
 
-sub set_server_cert_and_key ($$$) {
+sub set_cert_and_key ($$$) {
     my ($ctx, $cert_path, $key_path) = @_;    
     my $errs = '';
     # Following will ask password unless private key is not encrypted
@@ -1397,6 +1461,10 @@ sub set_server_cert_and_key ($$$) {
     $errs .= print_errs("certificate `$cert_path' ($!)");
     return wantarray ? (undef, $errs) : ($errs eq '');
 }
+
+### Old deprecated API
+
+sub set_server_cert_and_key ($$$) { &set_cert_and_key }
 
 ###
 ### Easy https manipulation routines
@@ -1419,30 +1487,33 @@ sub make_headers {
     my (@headers) = @_;
     my $headers;
     while (@headers) {
-	$headers .= shift(@headers) . ': ' . shift(@headers) . "\r\n";
+	my $header = shift(@headers);
+	my $value = shift(@headers);
+	$header =~ s/:$//;
+	$value =~ s/\x0d\x0a$//; # because we add it soon, see below
+	$headers .= "$header: $value$CRLF";
     }
     return $headers;
 }
 
-# ($page, $respone_or_err, %headers) = do_https(...);
-
-sub do_https {
-    my ($site, $port, $path, $method, $headers, $content, $mime_type) = @_;
+sub do_https2 {
+    my ($method, $site, $port, $path, $headers,
+	$content, $mime_type, $crt_path, $key_path) = @_;
     my ($response, $page, $errs, $http, $h,$v);
 
     if ($content) {
 	$mime_type = "application/x-www-form-urlencoded" unless $mime_type;
 	my $len = length($content);
-	$content = "Content-Type: $mime_type\r\n"
-	    . "Content-Length: $len\r\n\r\n$content";
+	$content = "Content-Type: $mime_type$CRLF"
+	    . "Content-Length: $len$CRLF$CRLF$content";
     } else {
-	$content = "\r\n\r\n";
+	$content = "$CRLF$CRLF";
     }
-    my $req = "$method $path HTTP/1.0\r\nHost: $site:$port\r\n"
-      . (defined $headers ? $headers : '') . "Accept: */*\r\n$content";    
+    my $req = "$method $path HTTP/1.0$CRLF"."Host: $site:$port$CRLF"
+      . (defined $headers ? $headers : '') . "Accept: */*$CRLF$content";    
 
-    ($http, $errs) = https_cat($site, $port, $req);    
-    return (undef, "HTTP/1.0 900 NET OR SSL ERROR\r\n\r\n$errs") if $errs;
+    ($http, $errs) = https_cat($site, $port, $req, $crt_path, $key_path);
+    return (undef, "HTTP/1.0 900 NET OR SSL ERROR$CRLF$CRLF$errs") if $errs;
     
     $http = '' if !defined $http;
     ($headers, $page) = split /\s?\n\s?\n/, $http, 2;
@@ -1454,14 +1525,20 @@ sub do_https {
 	    );
 }
 
-sub get_https ($$$;***) {
-    my ($site, $port, $path, $headers, $content, $mime) = @_;
-    return do_https($site, $port, $path, 'GET', $headers, $content, $mime);
-}
+sub get_https ($$$;***)  { do_https2(GET  => @_) }
+sub post_https ($$$;***) { do_https2(POST => @_) }
+sub put_https ($$$;***)  { do_https2(PUT  => @_) }
+sub head_https ($$$;***) { do_https2(HEAD => @_) }
 
-sub post_https ($$$;***) {
-    my ($site, $port, $path, $headers, $post_str, $mime) = @_;
-    return do_https($site, $port, $path, 'POST', $headers, $post_str, $mime);
+### Legacy
+# ($page, $respone_or_err, %headers) = do_https(...);
+
+sub do_https {
+    my ($site, $port, $path, $method, $headers,
+	$content, $mime_type, $crt_path, $key_path) = @_;
+
+    do_https2($method, $site, $port, $path, $headers,
+	     $content, $mime_type, $crt_path, $key_path);
 }
 
 1;

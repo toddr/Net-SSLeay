@@ -1,8 +1,9 @@
 README - Net::SSLeay Perl module for using OpenSSL
 
-18.4.2001, Sampo Kellomaki <sampo@iki.fi>
-Version: 1.07
+18.7.2001, Sampo Kellomaki <sampo@iki.fi>
+Version: 1.08
 
+1.08: 64 bit fixes, windows fixes, fixed extra newline with auth bug
 1.07: added rudimentary TLSv1 support by Stephen C. Koehler
 1.06: fixed ssl_read_all() bug where input '0' would cause loop to exit
 1.05: fixed certificate gen at make test
@@ -46,13 +47,35 @@ Unix:
 	perldoc Net::SSLeay  # optional, but highly recommended
 
 Windows:
+	You need to get MS VC++ 6.0 Enterprise Edition. Nobody has
+	reported building using CygWin, although I suspect the
+	Unix instructions are pretty close.
+
+	Add:
+		d:\openssl
+		d:\openssl\bin
+		d:\openssl\lib
+		d:\openssl\include
+		d:\openssl\include\openssl
+
+	to system's environment PATH, assuming you installed your openssl
+	in d:\openssl. YMMV
+
+		perl Makefile.PL -windows D:\OpenSSL
+
+	where the last argument specifies where you installed your openssl.
+	The -windows flag tries to set up libraries correctly. If it
+	does not work, please tweak Makefile.PL and submit me a patch.
+
+		nmake
+		nmake install
+
 	*** windows details are still being worked out. If you manage
 	to compile this with different development environments under
 	Win32, please mail the diffs/success reports to me at sampo@iki.fi
 	
-	Windows build was greatly helped by Anton Roeckseisen <anton@genua.de>
-	
-	read README.Win32
+	The current incarnation of Windows tweaks was contributed by
+	Eric A Selber <eselber@briefcase.com>
 
 You should also be able to use CPAN.pm to install this module if you like.
 
@@ -66,15 +89,35 @@ librsaref.a must be found in one of the locations searched by linker
 (-L switches). Usually this means that you have to rename rsaref.a to
 librsaref.a and copy it to suitable directory, e.g. /usr/local/ssl/lib.
 
+N.B. AFAIK the patent that made using RSAref necessary has expired, so this
+should be nonissue by now.
+
 Problems (read this before sending mail)
 ----------------------------------------
 
-If you send me a question or make a bug report, please remeber
+Please, do not send bug report before you have
+
+  - compiled your OpenSSL yourself - don't copy binaries, please
+  - compiled your perl yourself and with substantially same CFLAGS
+    and same c compiler (say `which cc' or `which gcc' as your OpenSSL.
+    This is especially applicable to link errors and shared
+    library loading problems. Please do not even dream of
+    copying a perl binary or installing perl binary from a package.
+    Perl's idea of calling conventions has to match OpenSSL's and
+    unfortunately both are quite advanced pieces of code
+    (guru duel: Larry Wall vs. Eric Young :-) with dynamic loading
+    and who knows what
+  - compiled my module from source against correct perl (say `which perl'
+    and check your path). Generally my module's build process will
+    discover correct compiler and flags from `perl -V'
+  - tried gcc, if your vendor cc fails
+
+If you send me a question or make a bug report, please remeber to mention
 
   - Your platform and OS version (i386 Linux, Sparc Solaris, etc) (uname -a)
   - On Linux, please report glibc version as well
   - Net::SSLeay version
-  - OpenSSL version (/usr/local/ssl/bin/openssl version)
+  - OpenSSL version (`/usr/local/ssl/bin/openssl version')
   - ANSI C compiler make and version (gcc -v)
 
 If build fails,

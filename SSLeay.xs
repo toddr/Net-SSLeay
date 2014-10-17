@@ -13,6 +13,9 @@
  * 7.4.2001,  OpenSSL-0.9.6a update, --Sampo
  * 18.4.2001, added TLSv1 support by Stephen C. Koehler
  *            <koehler@securecomputing.com>, version 1.07, --Sampo
+ * 25.4.2001, applied 64 bit fixes by Marko Asplund <aspa@kronodoc.fi> --Sampo
+ * 16.7.2001, applied Win filehandle patch from aspa, added
+ *            SSL_*_methods --Sampo
  * 
  * The distribution and use of this module are subject to the conditions
  * listed in LICENSE file at the root of OpenSSL-0.9.6a
@@ -54,6 +57,7 @@ extern "C" {
 
 #include <openssl/err.h>
 #include <openssl/lhash.h>
+#include <openssl/rand.h>
 #include <openssl/buffer.h>
 #include <openssl/ssl.h>
 
@@ -80,9 +84,7 @@ char *s;
 /* xsub automagically generated constant evaluator function */
 
 static double
-constant(name, arg)
-char *name;
-int arg;
+constant(char* name)
 {
     errno = 0;
     switch (*name) {
@@ -209,7 +211,55 @@ int arg;
     case 'D':
 	break;
     case 'E':
-	break;
+      if (strEQ(name, "ERROR_NONE"))
+#ifdef SSL_ERROR_NONE
+      return SSL_ERROR_NONE;
+#else
+      goto not_there;
+#endif
+      if (strEQ(name, "ERROR_SSL"))
+#ifdef SSL_ERROR_SSL
+      return SSL_ERROR_SSL;
+#else
+      goto not_there;
+#endif
+      if (strEQ(name, "ERROR_SYSCALL"))
+#ifdef SSL_ERROR_SYSCALL
+      return SSL_ERROR_SYSCALL;
+#else
+      goto not_there;
+#endif
+      if (strEQ(name, "ERROR_WANT_CONNECT"))
+#ifdef SSL_ERROR_WANT_CONNECT
+      return SSL_ERROR_WANT_CONNECT;
+#else
+      goto not_there;
+#endif
+      if (strEQ(name, "ERROR_WANT_READ"))
+#ifdef SSL_ERROR_WANT_READ
+      return SSL_ERROR_WANT_READ;
+#else
+      goto not_there;
+#endif
+      if (strEQ(name, "ERROR_WANT_WRITE"))
+#ifdef SSL_ERROR_WANT_WRITE
+      return SSL_ERROR_WANT_WRITE;
+#else
+      goto not_there;
+#endif
+      if (strEQ(name, "ERROR_WANT_X509_LOOKUP"))
+#ifdef SSL_ERROR_WANT_X509_LOOKUP
+      return SSL_ERROR_WANT_X509_LOOKUP;
+#else
+      goto not_there;
+#endif
+      if (strEQ(name, "ERROR_ZERO_RETURN"))
+#ifdef SSL_ERROR_ZERO_RETURN
+      return SSL_ERROR_ZERO_RETURN;
+#else
+      goto not_there;
+#endif
+      break;
     case 'F':
 	if (strEQ(name, "FILETYPE_ASN1"))
 #ifdef SSL_FILETYPE_ASN1
@@ -1462,7 +1512,7 @@ ssleay_verify_callback_glue (int ok, X509_STORE_CTX* ctx)
 
 	PUSHMARK(sp);
 	XPUSHs(sv_2mortal(newSViv(ok)));
-	XPUSHs(sv_2mortal(newSViv((int)ctx)));
+	XPUSHs(sv_2mortal(newSViv((unsigned long int)ctx)));
 	PUTBACK ;
 	
 	if (ssleay_verify_callback == NULL)
@@ -1502,7 +1552,7 @@ ssleay_ctx_verify_callback_glue (int ok, X509_STORE_CTX* ctx)
 
 	PUSHMARK(sp);
 	XPUSHs(sv_2mortal(newSViv(ok)));
-	XPUSHs(sv_2mortal(newSViv((int)ctx)));
+	XPUSHs(sv_2mortal(newSViv((unsigned long int)ctx)));
 	PUTBACK ;
 	
 	if (ssleay_ctx_verify_callback == NULL)
@@ -1532,9 +1582,8 @@ MODULE = Net::SSLeay		PACKAGE = Net::SSLeay          PREFIX = SSL_
 PROTOTYPES: ENABLE
 
 double
-constant(name,arg)
+constant(name)
      char *		name
-     int		arg
 
 int
 hello()
@@ -1578,6 +1627,14 @@ SSL_CTX *
 SSL_CTX_tlsv1_new()
      CODE:
      RETVAL = SSL_CTX_new (TLSv1_method());
+     OUTPUT:
+     RETVAL
+
+SSL_CTX *
+SSL_CTX_new_with_method(meth)
+     SSL_METHOD *   meth
+     CODE:
+     RETVAL = SSL_CTX_new (SSLv23_method());
      OUTPUT:
      RETVAL
 
@@ -1633,6 +1690,12 @@ SSL_CTX_set_verify(ctx,mode,callback)
      } else {
          SSL_CTX_set_verify(ctx,mode,NULL);
      }
+
+
+int
+SSL_get_error(s,ret)
+     SSL *              s
+     int ret
 
 #define REM10 "============= SSL functions =============="
 
@@ -2286,5 +2349,23 @@ MD5(data)
      } else {
 	  XSRETURN_UNDEF;
      }
+
+SSL_METHOD *
+SSLv2_method()
+
+SSL_METHOD *
+SSLv3_method()
+
+SSL_METHOD *
+TLSv1_method()
+
+int
+SSL_set_ssl_method(ssl, method)
+     SSL *          ssl
+     SSL_METHOD *   method
+
+SSL_METHOD *
+SSL_get_ssl_method(ssl)
+     SSL *          ssl
 
 #define REM_EOF "/* EOF - SSLeay.xs */"

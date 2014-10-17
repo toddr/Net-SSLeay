@@ -3,19 +3,25 @@
 # 30.7.1999, upgraded for OpenSSL-0.9.3a --Sampo
 # 7.4.2001,  upgraded to OpenSSL-0.9.6a --Sampo
 # 15.4.2001, fixed little bug in ssl directory detection --Sampo
+# 18.7.2001, fixed numerous issues reported by Eric A Selber
+#	     <eselber@briefcase.com> that made Windows builds painful --Sampo
 #
 # Configuration script for Net::SSLeay.pm
 
 $usage = <<USAGE
-Usage: ./Makefile.PL [-rsaref] [-m|-t] [OpenSSL installation path]
+Usage: ./Makefile.PL [-windows] [-rsaref] [-m|-t] [OpenSSL installation path]
            -m and -t  will automatically build and test, respectively
            -d         builds and tests verbosely
            -rsaref    provides support for linking against rsaref
+           -windows   sets library paths for windows build
 E.g:   ./Makefile.PL -d
+
+Note: For Windows builds openssl installation path must always be given.
 USAGE
     ;
 die $usage if grep /^--?[hv?]/i, @ARGV;
 
+$windows = shift if $ARGV[0] eq '-windows';
 $rsaref  = shift if $ARGV[0] eq '-rsaref';
 $make_it = shift if $ARGV[0] eq '-m';
 $test_it = shift if $ARGV[0] eq '-t';
@@ -30,30 +36,36 @@ if (@ARGV) {
     $openssl_path = '/usr/local/ssl' if -x '/usr/local/ssl/bin/openssl';
 }
 
-$openssl_vers = '0.9.6a';
+$openssl_vers = '0.9.6b';
 
 print "Checking for OpenSSL-$openssl_vers or newer...\n";
 
-until (-x "$openssl_path/bin/openssl" | -x "$openssl_path/sbin/openssl") {
+while (1) {
+    $exe_path = "$openssl_path/bin/openssl";
+    last if -x $exe_path;
+    $exe_path = "$openssl_path/bin/openssl.exe";
+    last if -x $exe_path;
+    $exe_path = "$openssl_path/sbin/openssl";
+    last if -x $exe_path;
+
     print "I could not find your OpenSSL in `$openssl_path'\n";
     print "Please provide OpenSSL-$openssl_vers installation directory (get from\n"
-	. " http://www.openssl.org/ if you don't have it; please note that\n"
+	." http://www.openssl.org/ if you don't have it; please note that\n"
 	    ." SSLeay is no longer supported, see README) (C-c to abort):\n";
     $openssl_path = <STDIN>;
     chomp $openssl_path;
 }
 
-$openssl_bin_path = -x "$openssl_path/bin/openssl" ?
-    "$openssl_path/bin" : "$openssl_path/sbin";
+($openssl_bin_path = $exe_path) =~ s%/.*?$%%;
 
-$vers = `$openssl_bin_path/openssl version`
-    or die "Couldn't run `$openssl_bin_path/bin/openssl' ($?)\n";
+$vers = `$exe_path version`
+    or die "Couldn't run `$exe_path' ($?)\n";
 
 unless (($lib_name, $maj, $min, $letter) = $vers =~
 	/^(OpenSSL)\s+(\d+\.\d+)\.(\d+)([a-z]*)/) {
     die "Openssl version test failed (`$vers' was returned, but\n"
     . "couldn't be parsed). Either you have bogus OpenSSL or a new version\n"
-    . "has changed version number format.\n";
+    . "has changed the version number format.\n";
 }
 
 print "You have $lib_name-$maj.$min$letter installed in $openssl_path\n";
@@ -68,32 +80,48 @@ warn "That's is newer than what this module was tested with ($openssl_vers). You
     . "available. Everything will probably work OK, though.\n"
     if $maj > 0.9 || $min > 6;
 
+warn "openssl-0.9.6a and some earlier versions have weaknesses (read CHANGES file in the openssl-0.9.6b distribution, www.openssl.org), upgrading to openssl-0.9.6b is recommended.\n"
+    if $maj eq '0.9' && $min == 6 && $letter lt 'b';
+
 open F, ">openssl_path" or die "Can't write ./openssl_path: $!";
 print F $openssl_bin_path;  # used by test.pl and examples/makecert.pl
 close F;
 
-$libs = $rsaref ? "-lssl -lRSAglue -lcrypto -lrsaref" : "-lssl -lcrypto";
+### The windows option tweaking details supplied by
+### Eric A Selber <eselber@briefcase.com>. This is
+### still experimental until I get success reports.
+
+if ($windows) {
+    warn "RSAREF build on Windows not supported out of box" if $rsaref;
+    $libs = "-llibeay32 -lssleay32";
+} else {
+    $libs = $rsaref ? "-lssl -lRSAglue -lcrypto -lrsaref" : "-lssl -lcrypto";
+}
 
 use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 WriteMakefile(
-    'NAME'	   => 'Net::SSLeay',
-    'VERSION_FROM' => 'SSLeay.pm', # finds $VERSION
-    'DEFINE'	=> '',     # e.g., '-DHAVE_SOMETHING' 
-    'DISTNAME'  => 'Net_SSLeay.pm',
-    'dist'      => { COMPRESS => 'gzip', SUFFIX => 'gz', },
-    'LIBS'	=> ["-L$openssl_path -L$openssl_path/lib $libs"],
-
-### Win32 build: uncommend LIBS above and edit LIBS below according to your
-### 
-#    'LIBS'	=> ["'-L/Program Files/DevStudio/VC/lib' -L$openssl_path -L$openssl_path/lib $libs"],
-    'INC'	=> "-I$openssl_path/include",
+    NAME	=> 'Net::SSLeay',
+    VERSION_FROM => 'SSLeay.pm', # finds $VERSION
+    DIR         => 'Net-SSLeay-Handle-0.50',
+    DEFINE	=> '',     # e.g., '-DHAVE_SOMETHING' 
+    DISTNAME    => 'Net_SSLeay.pm',
+    dist        => { COMPRESS => 'gzip', SUFFIX => 'gz', },
+    LIBS	=> ["-L$openssl_path -L$openssl_path/lib $libs"],
+    INC 	=> "-I$openssl_path/include",
 # Uncomment (and edit) following for debugging with gdb
-#    'LIBS'	=> ['-L/usr/src/openssl-0.9.3a -lssl -lcrypto'],
-#    'INC'	=> '-I/usr/src/openssl-0.9.3a/include',
-#    'OPTIMIZE'  => '-g',
+#    LIBS	=> ['-L/usr/src/openssl-0.9.3a -lssl -lcrypto'],
+#    INC	=> '-I/usr/src/openssl-0.9.3a/include',
+#    OPTIMIZE   => '-g',
 );
+
+# See lib/ExtUtils/MakeMaker.pm for details of how to influence
+# the contents of the Makefile that is written.
+#WriteMakefile(
+#    'NAME'	   => 'Net::SSLeay::Handle',
+#    'VERSION_FROM' => 'Handle.pm', # finds $VERSION
+#);
 
 $ENV{TEST_TRACE} = 2 if $debug;
 exec "make" if $make_it;
