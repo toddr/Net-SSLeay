@@ -27,7 +27,9 @@
 #            --mikem@open._com.au
 # 10.8.2002, Added SSL_peek patch to ssl_read_until from 
 #            Peter Behroozi <peter@@fhpwireless_.com> --Sampo
-# $Id: SSLeay.pm,v 1.17 2002/08/16 20:57:54 sampo Exp $
+# 21.8.2002, Added SESSION_get_master_key, SSL_get_client_random, SSL_get_server_random
+#            --mikem@open.com_.au
+# $Id: SSLeay.pm,v 1.18 2002/08/21 17:52:41 sampo Exp $
 #
 # The distribution and use of this module are subject to the conditions
 # listed in LICENSE file at the root of OpenSSL-0.9.6c
@@ -83,7 +85,7 @@ $Net::SSLeay::slowly = 0;  # don't change here, use
 $Net::SSLeay::random_device = '/dev/urandom';
 $Net::SSLeay::how_random = 512;
 
-$VERSION = '1.19';
+$VERSION = '1.20';
 @ISA = qw(Exporter DynaLoader);
 @EXPORT_OK = qw(
 	AT_MD5_WITH_RSA_ENCRYPTION
@@ -393,6 +395,9 @@ $VERSION = '1.19';
 	RSA_generate_key
 	RSA_free
 	X509_free
+	SESSION_get_master_key
+	get_client_random
+	get_server_random
 );
 
 sub AUTOLOAD {
@@ -921,6 +926,13 @@ Some BIO functions are available:
   $is_eof = Net::SSLeay::BIO_eof($bio);
   $count = Net::SSLeay::BIO_pending($bio);
   $count = Net::SSLeay::BIO_wpending ($bio);
+
+=head2 Low level API
+Some very low level API functions are available:
+    $client_random = &Net::SSLeay::get_client_random($ssl);
+    $server_random = &Net::SSLeay::get_server_random($ssl);
+    $session = &Net::SSLeay::get_session($ssl);
+    $master_key = &Net::SSLeay::SESSION_get_master_key($session);
 
 =head1 EXAMPLES
 
@@ -1567,10 +1579,12 @@ sub dump_peer_certificate ($) {
 	warn "cert = `$cert'\n" if $trace;
 	return "Subject Name: undefined\nIssuer  Name: undefined\n";
     } else {
-	return 'Subject Name: '
+	my $x = 'Subject Name: '
 	    . X509_NAME_oneline(X509_get_subject_name($cert)) . "\n"
 		. 'Issuer  Name: '
 		    . X509_NAME_oneline(X509_get_issuer_name($cert))  . "\n";
+	Net::SSLeay::X509_free($cert);
+	return $x;
     }
 }
 

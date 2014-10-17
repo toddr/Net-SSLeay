@@ -30,8 +30,10 @@
  *            --mikem@open.com_.au
  * 10.8.2002, Added SSL_peek patch to ssl_read_until from 
  *            Peter Behroozi <peter@@fhpwireless_.com> --Sampo
+ * 21.8.2002, Added SESSION_get_master_key, SSL_get_client_random, SSL_get_server_random
+ *            --mikem@open.com_.au
  *
- * $Id: SSLeay.xs,v 1.10 2002/08/16 20:58:17 sampo Exp $
+ * $Id: SSLeay.xs,v 1.11 2002/08/21 17:52:42 sampo Exp $
  * 
  * The distribution and use of this module are subject to the conditions
  * listed in LICENSE file at the root of OpenSSL-0.9.6b
@@ -3232,5 +3234,27 @@ SSL_total_renegotiations(ssl)
   RETVAL = SSL_ctrl(ssl,SSL_CTRL_GET_TOTAL_RENEGOTIATIONS,0,NULL);
   OUTPUT:
   RETVAL
+
+void
+SSL_SESSION_get_master_key(s)
+     SSL_SESSION *   s
+     CODE:
+     ST(0) = sv_newmortal();   /* Undefined to start with */
+     sv_setpvn(ST(0), s->master_key, s->master_key_length);
+
+void
+SSL_get_client_random(s)
+     SSL *   s
+     CODE:
+     ST(0) = sv_newmortal();   /* Undefined to start with */
+     sv_setpvn(ST(0), s->s3->client_random, SSL3_RANDOM_SIZE);
+
+void
+SSL_get_server_random(s)
+     SSL *   s
+     CODE:
+     ST(0) = sv_newmortal();   /* Undefined to start with */
+     sv_setpvn(ST(0), s->s3->server_random, SSL3_RANDOM_SIZE);
+
 
 #define REM_EOF "/* EOF - SSLeay.xs */"
